@@ -1,0 +1,2930 @@
+<!DOCTYPE html>
+<html>
+<head><style>/* BASICS */
+
+.CodeMirror {
+  /* Set height, width, borders, and global font properties here */
+  font-family: monospace;
+  height: 300px;
+  color: black;
+  direction: ltr;
+}
+
+/* PADDING */
+
+.CodeMirror-lines {
+  padding: 4px 0; /* Vertical padding around content */
+}
+.CodeMirror pre.CodeMirror-line,
+.CodeMirror pre.CodeMirror-line-like {
+  padding: 0 4px; /* Horizontal padding of content */
+}
+
+.CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+  background-color: white; /* The little square between H and V scrollbars */
+}
+
+/* GUTTER */
+
+.CodeMirror-gutters {
+  border-right: 1px solid #ddd;
+  background-color: #f7f7f7;
+  white-space: nowrap;
+}
+.CodeMirror-linenumbers {}
+.CodeMirror-linenumber {
+  padding: 0 3px 0 5px;
+  min-width: 20px;
+  text-align: right;
+  color: #999;
+  white-space: nowrap;
+}
+
+.CodeMirror-guttermarker { color: black; }
+.CodeMirror-guttermarker-subtle { color: #999; }
+
+/* CURSOR */
+
+.CodeMirror-cursor {
+  border-left: 1px solid black;
+  border-right: none;
+  width: 0;
+}
+/* Shown when moving in bi-directional text */
+.CodeMirror div.CodeMirror-secondarycursor {
+  border-left: 1px solid silver;
+}
+.cm-fat-cursor .CodeMirror-cursor {
+  width: auto;
+  border: 0 !important;
+  background: #7e7;
+}
+.cm-fat-cursor div.CodeMirror-cursors {
+  z-index: 1;
+}
+.cm-fat-cursor .CodeMirror-line::selection,
+.cm-fat-cursor .CodeMirror-line > span::selection, 
+.cm-fat-cursor .CodeMirror-line > span > span::selection { background: transparent; }
+.cm-fat-cursor .CodeMirror-line::-moz-selection,
+.cm-fat-cursor .CodeMirror-line > span::-moz-selection,
+.cm-fat-cursor .CodeMirror-line > span > span::-moz-selection { background: transparent; }
+.cm-fat-cursor { caret-color: transparent; }
+@-moz-keyframes blink {
+  0% {}
+  50% { background-color: transparent; }
+  100% {}
+}
+@-webkit-keyframes blink {
+  0% {}
+  50% { background-color: transparent; }
+  100% {}
+}
+@keyframes blink {
+  0% {}
+  50% { background-color: transparent; }
+  100% {}
+}
+
+/* Can style cursor different in overwrite (non-insert) mode */
+.CodeMirror-overwrite .CodeMirror-cursor {}
+
+.cm-tab { display: inline-block; text-decoration: inherit; }
+
+.CodeMirror-rulers {
+  position: absolute;
+  left: 0; right: 0; top: -50px; bottom: 0;
+  overflow: hidden;
+}
+.CodeMirror-ruler {
+  border-left: 1px solid #ccc;
+  top: 0; bottom: 0;
+  position: absolute;
+}
+
+/* DEFAULT THEME */
+
+.cm-s-default .cm-header {color: blue;}
+.cm-s-default .cm-quote {color: #090;}
+.cm-negative {color: #d44;}
+.cm-positive {color: #292;}
+.cm-header, .cm-strong {font-weight: bold;}
+.cm-em {font-style: italic;}
+.cm-link {text-decoration: underline;}
+.cm-strikethrough {text-decoration: line-through;}
+
+.cm-s-default .cm-keyword {color: #708;}
+.cm-s-default .cm-atom {color: #219;}
+.cm-s-default .cm-number {color: #164;}
+.cm-s-default .cm-def {color: #00f;}
+.cm-s-default .cm-variable,
+.cm-s-default .cm-punctuation,
+.cm-s-default .cm-property,
+.cm-s-default .cm-operator {}
+.cm-s-default .cm-variable-2 {color: #05a;}
+.cm-s-default .cm-variable-3, .cm-s-default .cm-type {color: #085;}
+.cm-s-default .cm-comment {color: #a50;}
+.cm-s-default .cm-string {color: #a11;}
+.cm-s-default .cm-string-2 {color: #f50;}
+.cm-s-default .cm-meta {color: #555;}
+.cm-s-default .cm-qualifier {color: #555;}
+.cm-s-default .cm-builtin {color: #30a;}
+.cm-s-default .cm-bracket {color: #997;}
+.cm-s-default .cm-tag {color: #170;}
+.cm-s-default .cm-attribute {color: #00c;}
+.cm-s-default .cm-hr {color: #999;}
+.cm-s-default .cm-link {color: #00c;}
+
+.cm-s-default .cm-error {color: #f00;}
+.cm-invalidchar {color: #f00;}
+
+.CodeMirror-composing { border-bottom: 2px solid; }
+
+/* Default styles for common addons */
+
+div.CodeMirror span.CodeMirror-matchingbracket {color: #0b0;}
+div.CodeMirror span.CodeMirror-nonmatchingbracket {color: #a22;}
+.CodeMirror-matchingtag { background: rgba(255, 150, 0, .3); }
+.CodeMirror-activeline-background {background: #e8f2ff;}
+
+/* STOP */
+
+/* The rest of this file contains styles related to the mechanics of
+   the editor. You probably shouldn't touch them. */
+
+.CodeMirror {
+  position: relative;
+  overflow: hidden;
+  background: white;
+}
+
+.CodeMirror-scroll {
+  overflow: scroll !important; /* Things will break if this is overridden */
+  /* 50px is the magic margin used to hide the element's real scrollbars */
+  /* See overflow: hidden in .CodeMirror */
+  margin-bottom: -50px; margin-right: -50px;
+  padding-bottom: 50px;
+  height: 100%;
+  outline: none; /* Prevent dragging from highlighting the element */
+  position: relative;
+  z-index: 0;
+}
+.CodeMirror-sizer {
+  position: relative;
+  border-right: 50px solid transparent;
+}
+
+/* The fake, visible scrollbars. Used to force redraw during scrolling
+   before actual scrolling happens, thus preventing shaking and
+   flickering artifacts. */
+.CodeMirror-vscrollbar, .CodeMirror-hscrollbar, .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+  position: absolute;
+  z-index: 6;
+  display: none;
+  outline: none;
+}
+.CodeMirror-vscrollbar {
+  right: 0; top: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+.CodeMirror-hscrollbar {
+  bottom: 0; left: 0;
+  overflow-y: hidden;
+  overflow-x: scroll;
+}
+.CodeMirror-scrollbar-filler {
+  right: 0; bottom: 0;
+}
+.CodeMirror-gutter-filler {
+  left: 0; bottom: 0;
+}
+
+.CodeMirror-gutters {
+  position: absolute; left: 0; top: 0;
+  min-height: 100%;
+  z-index: 3;
+}
+.CodeMirror-gutter {
+  white-space: normal;
+  height: 100%;
+  display: inline-block;
+  vertical-align: top;
+  margin-bottom: -50px;
+}
+.CodeMirror-gutter-wrapper {
+  position: absolute;
+  z-index: 4;
+  background: none !important;
+  border: none !important;
+}
+.CodeMirror-gutter-background {
+  position: absolute;
+  top: 0; bottom: 0;
+  z-index: 4;
+}
+.CodeMirror-gutter-elt {
+  position: absolute;
+  cursor: default;
+  z-index: 4;
+}
+.CodeMirror-gutter-wrapper ::selection { background-color: transparent }
+.CodeMirror-gutter-wrapper ::-moz-selection { background-color: transparent }
+
+.CodeMirror-lines {
+  cursor: text;
+  min-height: 1px; /* prevents collapsing before first draw */
+}
+.CodeMirror pre.CodeMirror-line,
+.CodeMirror pre.CodeMirror-line-like {
+  /* Reset some styles that the rest of the page might have set */
+  -moz-border-radius: 0; -webkit-border-radius: 0; border-radius: 0;
+  border-width: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  margin: 0;
+  white-space: pre;
+  word-wrap: normal;
+  line-height: inherit;
+  color: inherit;
+  z-index: 2;
+  position: relative;
+  overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-variant-ligatures: contextual;
+  font-variant-ligatures: contextual;
+}
+.CodeMirror-wrap pre.CodeMirror-line,
+.CodeMirror-wrap pre.CodeMirror-line-like {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  word-break: normal;
+}
+
+.CodeMirror-linebackground {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  z-index: 0;
+}
+
+.CodeMirror-linewidget {
+  position: relative;
+  z-index: 2;
+  padding: 0.1px; /* Force widget margins to stay inside of the container */
+}
+
+.CodeMirror-widget {}
+
+.CodeMirror-rtl pre { direction: rtl; }
+
+.CodeMirror-code {
+  outline: none;
+}
+
+/* Force content-box sizing for the elements where we expect it */
+.CodeMirror-scroll,
+.CodeMirror-sizer,
+.CodeMirror-gutter,
+.CodeMirror-gutters,
+.CodeMirror-linenumber {
+  -moz-box-sizing: content-box;
+  box-sizing: content-box;
+}
+
+.CodeMirror-measure {
+  position: absolute;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.CodeMirror-cursor {
+  position: absolute;
+  pointer-events: none;
+}
+.CodeMirror-measure pre { position: static; }
+
+div.CodeMirror-cursors {
+  visibility: hidden;
+  position: relative;
+  z-index: 3;
+}
+div.CodeMirror-dragcursors {
+  visibility: visible;
+}
+
+.CodeMirror-focused div.CodeMirror-cursors {
+  visibility: visible;
+}
+
+.CodeMirror-selected { background: #d9d9d9; }
+.CodeMirror-focused .CodeMirror-selected { background: #d7d4f0; }
+.CodeMirror-crosshair { cursor: crosshair; }
+.CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection { background: #d7d4f0; }
+.CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection { background: #d7d4f0; }
+
+.cm-searching {
+  background-color: #ffa;
+  background-color: rgba(255, 255, 0, .4);
+}
+
+/* Used to force a border model for a node */
+.cm-force-border { padding-right: .1px; }
+
+@media print {
+  /* Hide the cursor when printing */
+  .CodeMirror div.CodeMirror-cursors {
+    visibility: hidden;
+  }
+}
+
+/* See issue #2901 */
+.cm-tab-wrap-hack:after { content: ''; }
+
+/* Help users use markselection to safely style text background */
+span.CodeMirror-selectedtext { background: none; }
+
+
+.CodeMirror-fullscreen {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  height: auto;
+  z-index: 9;
+}
+
+
+.CodeMirror-foldmarker {
+  color: blue;
+  text-shadow: #b9f 1px 1px 2px, #b9f -1px -1px 2px, #b9f 1px -1px 2px, #b9f -1px 1px 2px;
+  font-family: arial;
+  line-height: .3;
+  cursor: pointer;
+}
+.CodeMirror-foldgutter {
+  width: .7em;
+}
+.CodeMirror-foldgutter-open,
+.CodeMirror-foldgutter-folded {
+  cursor: pointer;
+}
+.CodeMirror-foldgutter-open:after {
+  content: "\25BE";
+}
+.CodeMirror-foldgutter-folded:after {
+  content: "\25B8";
+}
+
+
+.CodeMirror-hints {
+  position: absolute;
+  z-index: 10;
+  overflow: hidden;
+  list-style: none;
+
+  margin: 0;
+  padding: 2px;
+
+  -webkit-box-shadow: 2px 3px 5px rgba(0,0,0,.2);
+  -moz-box-shadow: 2px 3px 5px rgba(0,0,0,.2);
+  box-shadow: 2px 3px 5px rgba(0,0,0,.2);
+  border-radius: 3px;
+  border: 1px solid silver;
+
+  background: white;
+  font-size: 90%;
+  font-family: monospace;
+
+  max-height: 20em;
+  overflow-y: auto;
+}
+
+.CodeMirror-hint {
+  margin: 0;
+  padding: 0 4px;
+  border-radius: 2px;
+  white-space: pre;
+  color: black;
+  cursor: pointer;
+}
+
+li.CodeMirror-hint-active {
+  background: #08f;
+  color: white;
+}
+
+
+/*! jQuery UI - v1.12.0 - 2016-07-08
+* http://jqueryui.com
+* Includes: core.css, accordion.css, autocomplete.css, menu.css, button.css, controlgroup.css, checkboxradio.css, datepicker.css, dialog.css, draggable.css, resizable.css, progressbar.css, selectable.css, selectmenu.css, slider.css, sortable.css, spinner.css, tabs.css, tooltip.css, theme.css
+* To view and modify this theme, visit http://jqueryui.com/themeroller/?ffDefault=Verdana%2CArial%2Csans-serif&fwDefault=normal&fsDefault=1.1em&cornerRadius=4px&bgColorHeader=cccccc&bgTextureHeader=highlight_soft&bgImgOpacityHeader=75&borderColorHeader=aaaaaa&fcHeader=222222&iconColorHeader=222222&bgColorContent=ffffff&bgTextureContent=flat&bgImgOpacityContent=75&borderColorContent=aaaaaa&fcContent=222222&iconColorContent=222222&bgColorDefault=e6e6e6&bgTextureDefault=glass&bgImgOpacityDefault=75&borderColorDefault=d3d3d3&fcDefault=555555&iconColorDefault=888888&bgColorHover=dadada&bgTextureHover=glass&bgImgOpacityHover=75&borderColorHover=999999&fcHover=212121&iconColorHover=454545&bgColorActive=ffffff&bgTextureActive=glass&bgImgOpacityActive=65&borderColorActive=aaaaaa&fcActive=212121&iconColorActive=454545&bgColorHighlight=fbf9ee&bgTextureHighlight=glass&bgImgOpacityHighlight=55&borderColorHighlight=fcefa1&fcHighlight=363636&iconColorHighlight=2e83ff&bgColorError=fef1ec&bgTextureError=glass&bgImgOpacityError=95&borderColorError=cd0a0a&fcError=cd0a0a&iconColorError=cd0a0a&bgColorOverlay=aaaaaa&bgTextureOverlay=flat&bgImgOpacityOverlay=0&opacityOverlay=30&bgColorShadow=aaaaaa&bgTextureShadow=flat&bgImgOpacityShadow=0&opacityShadow=30&thicknessShadow=8px&offsetTopShadow=-8px&offsetLeftShadow=-8px&cornerRadiusShadow=8px
+* Copyright jQuery Foundation and other contributors; Licensed MIT */
+
+.ui-helper-hidden{display:none}.ui-helper-hidden-accessible{border:0;clip:rect(0 0 0 0);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px}.ui-helper-reset{margin:0;padding:0;border:0;outline:0;line-height:1.3;text-decoration:none;font-size:100%;list-style:none}.ui-helper-clearfix:before,.ui-helper-clearfix:after{content:"";display:table;border-collapse:collapse}.ui-helper-clearfix:after{clear:both}.ui-helper-zfix{width:100%;height:100%;top:0;left:0;position:absolute;opacity:0;filter:Alpha(Opacity=0)}.ui-front{z-index:100}.ui-state-disabled{cursor:default!important;pointer-events:none}.ui-icon{display:inline-block;vertical-align:middle;margin-top:-.25em;position:relative;text-indent:-99999px;overflow:hidden;background-repeat:no-repeat}.ui-widget-icon-block{left:50%;margin-left:-8px;display:block}.ui-widget-overlay{position:fixed;top:0;left:0;width:100%;height:100%}.ui-accordion .ui-accordion-header{display:block;cursor:pointer;position:relative;margin:2px 0 0 0;padding:.5em .5em .5em .7em;font-size:100%}.ui-accordion .ui-accordion-content{padding:1em 2.2em;border-top:0;overflow:auto}.ui-autocomplete{position:absolute;top:0;left:0;cursor:default}.ui-menu{list-style:none;padding:0;margin:0;display:block;outline:0}.ui-menu .ui-menu{position:absolute}.ui-menu .ui-menu-item{margin:0;cursor:pointer;list-style-image:url("data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")}.ui-menu .ui-menu-item-wrapper{position:relative;padding:3px 1em 3px .4em}.ui-menu .ui-menu-divider{margin:5px 0;height:0;font-size:0;line-height:0;border-width:1px 0 0 0}.ui-menu .ui-state-focus,.ui-menu .ui-state-active{margin:-1px}.ui-menu-icons{position:relative}.ui-menu-icons .ui-menu-item-wrapper{padding-left:2em}.ui-menu .ui-icon{position:absolute;top:0;bottom:0;left:.2em;margin:auto 0}.ui-menu .ui-menu-icon{left:auto;right:0}.ui-button{padding:.4em 1em;display:inline-block;position:relative;line-height:normal;margin-right:.1em;cursor:pointer;vertical-align:middle;text-align:center;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;overflow:visible}.ui-button,.ui-button:link,.ui-button:visited,.ui-button:hover,.ui-button:active{text-decoration:none}.ui-button-icon-only{width:2em;box-sizing:border-box;text-indent:-9999px;white-space:nowrap}input.ui-button.ui-button-icon-only{text-indent:0}.ui-button-icon-only .ui-icon{position:absolute;top:50%;left:50%;margin-top:-8px;margin-left:-8px}.ui-button.ui-icon-notext .ui-icon{padding:0;width:2.1em;height:2.1em;text-indent:-9999px;white-space:nowrap}input.ui-button.ui-icon-notext .ui-icon{width:auto;height:auto;text-indent:0;white-space:normal;padding:.4em 1em}input.ui-button::-moz-focus-inner,button.ui-button::-moz-focus-inner{border:0;padding:0}.ui-controlgroup{vertical-align:middle;display:inline-block}.ui-controlgroup > .ui-controlgroup-item{float:left;margin-left:0;margin-right:0}.ui-controlgroup > .ui-controlgroup-item:focus,.ui-controlgroup > .ui-controlgroup-item.ui-visual-focus{z-index:9999}.ui-controlgroup-vertical > .ui-controlgroup-item{display:block;float:none;width:100%;margin-top:0;margin-bottom:0;text-align:left}.ui-controlgroup-vertical .ui-controlgroup-item{box-sizing:border-box}.ui-controlgroup .ui-controlgroup-label{padding:.4em 1em}.ui-controlgroup .ui-controlgroup-label span{font-size:80%}.ui-controlgroup-horizontal .ui-controlgroup-label + .ui-controlgroup-item{border-left:none}.ui-controlgroup-vertical .ui-controlgroup-label + .ui-controlgroup-item{border-top:none}.ui-controlgroup-horizontal .ui-controlgroup-label.ui-widget-content{border-right:none}.ui-controlgroup-vertical .ui-controlgroup-label.ui-widget-content{border-bottom:none}.ui-controlgroup-vertical .ui-spinner-input{width:75%;width:calc( 100% - 2.4em )}.ui-controlgroup-vertical .ui-spinner .ui-spinner-up{border-top-style:solid}.ui-checkboxradio-label .ui-icon-background{box-shadow:inset 1px 1px 1px #ccc;border-radius:.12em;border:none}.ui-checkboxradio-radio-label .ui-icon-background{width:16px;height:16px;border-radius:1em;overflow:visible;border:none}.ui-checkboxradio-radio-label.ui-checkboxradio-checked .ui-icon,.ui-checkboxradio-radio-label.ui-checkboxradio-checked:hover .ui-icon{background-image:none;width:8px;height:8px;border-width:4px;border-style:solid}.ui-checkboxradio-disabled{pointer-events:none}.ui-datepicker{width:17em;padding:.2em .2em 0;display:none}.ui-datepicker .ui-datepicker-header{position:relative;padding:.2em 0}.ui-datepicker .ui-datepicker-prev,.ui-datepicker .ui-datepicker-next{position:absolute;top:2px;width:1.8em;height:1.8em}.ui-datepicker .ui-datepicker-prev-hover,.ui-datepicker .ui-datepicker-next-hover{top:1px}.ui-datepicker .ui-datepicker-prev{left:2px}.ui-datepicker .ui-datepicker-next{right:2px}.ui-datepicker .ui-datepicker-prev-hover{left:1px}.ui-datepicker .ui-datepicker-next-hover{right:1px}.ui-datepicker .ui-datepicker-prev span,.ui-datepicker .ui-datepicker-next span{display:block;position:absolute;left:50%;margin-left:-8px;top:50%;margin-top:-8px}.ui-datepicker .ui-datepicker-title{margin:0 2.3em;line-height:1.8em;text-align:center}.ui-datepicker .ui-datepicker-title select{font-size:1em;margin:1px 0}.ui-datepicker select.ui-datepicker-month,.ui-datepicker select.ui-datepicker-year{width:45%}.ui-datepicker table{width:100%;font-size:.9em;border-collapse:collapse;margin:0 0 .4em}.ui-datepicker th{padding:.7em .3em;text-align:center;font-weight:bold;border:0}.ui-datepicker td{border:0;padding:1px}.ui-datepicker td span,.ui-datepicker td a{display:block;padding:.2em;text-align:right;text-decoration:none}.ui-datepicker .ui-datepicker-buttonpane{background-image:none;margin:.7em 0 0 0;padding:0 .2em;border-left:0;border-right:0;border-bottom:0}.ui-datepicker .ui-datepicker-buttonpane button{float:right;margin:.5em .2em .4em;cursor:pointer;padding:.2em .6em .3em .6em;width:auto;overflow:visible}.ui-datepicker .ui-datepicker-buttonpane button.ui-datepicker-current{float:left}.ui-datepicker.ui-datepicker-multi{width:auto}.ui-datepicker-multi .ui-datepicker-group{float:left}.ui-datepicker-multi .ui-datepicker-group table{width:95%;margin:0 auto .4em}.ui-datepicker-multi-2 .ui-datepicker-group{width:50%}.ui-datepicker-multi-3 .ui-datepicker-group{width:33.3%}.ui-datepicker-multi-4 .ui-datepicker-group{width:25%}.ui-datepicker-multi .ui-datepicker-group-last .ui-datepicker-header,.ui-datepicker-multi .ui-datepicker-group-middle .ui-datepicker-header{border-left-width:0}.ui-datepicker-multi .ui-datepicker-buttonpane{clear:left}.ui-datepicker-row-break{clear:both;width:100%;font-size:0}.ui-datepicker-rtl{direction:rtl}.ui-datepicker-rtl .ui-datepicker-prev{right:2px;left:auto}.ui-datepicker-rtl .ui-datepicker-next{left:2px;right:auto}.ui-datepicker-rtl .ui-datepicker-prev:hover{right:1px;left:auto}.ui-datepicker-rtl .ui-datepicker-next:hover{left:1px;right:auto}.ui-datepicker-rtl .ui-datepicker-buttonpane{clear:right}.ui-datepicker-rtl .ui-datepicker-buttonpane button{float:left}.ui-datepicker-rtl .ui-datepicker-buttonpane button.ui-datepicker-current,.ui-datepicker-rtl .ui-datepicker-group{float:right}.ui-datepicker-rtl .ui-datepicker-group-last .ui-datepicker-header,.ui-datepicker-rtl .ui-datepicker-group-middle .ui-datepicker-header{border-right-width:0;border-left-width:1px}.ui-datepicker .ui-icon{display:block;text-indent:-99999px;overflow:hidden;background-repeat:no-repeat;left:.5em;top:.3em}.ui-dialog{position:absolute;top:0;left:0;padding:.2em;outline:0}.ui-dialog .ui-dialog-titlebar{padding:.4em 1em;position:relative}.ui-dialog .ui-dialog-title{float:left;margin:.1em 0;white-space:nowrap;width:90%;overflow:hidden;text-overflow:ellipsis}.ui-dialog .ui-dialog-titlebar-close{position:absolute;right:.3em;top:50%;width:20px;margin:-10px 0 0 0;padding:1px;height:20px}.ui-dialog .ui-dialog-content{position:relative;border:0;padding:.5em 1em;background:none;overflow:auto}.ui-dialog .ui-dialog-buttonpane{text-align:left;border-width:1px 0 0 0;background-image:none;margin-top:.5em;padding:.3em 1em .5em .4em}.ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset{float:right}.ui-dialog .ui-dialog-buttonpane button{margin:.5em .4em .5em 0;cursor:pointer}.ui-dialog .ui-resizable-n{height:2px;top:0}.ui-dialog .ui-resizable-e{width:2px;right:0}.ui-dialog .ui-resizable-s{height:2px;bottom:0}.ui-dialog .ui-resizable-w{width:2px;left:0}.ui-dialog .ui-resizable-se,.ui-dialog .ui-resizable-sw,.ui-dialog .ui-resizable-ne,.ui-dialog .ui-resizable-nw{width:7px;height:7px}.ui-dialog .ui-resizable-se{right:0;bottom:0}.ui-dialog .ui-resizable-sw{left:0;bottom:0}.ui-dialog .ui-resizable-ne{right:0;top:0}.ui-dialog .ui-resizable-nw{left:0;top:0}.ui-draggable .ui-dialog-titlebar{cursor:move}.ui-draggable-handle{-ms-touch-action:none;touch-action:none}.ui-resizable{position:relative}.ui-resizable-handle{position:absolute;font-size:0.1px;display:block;-ms-touch-action:none;touch-action:none}.ui-resizable-disabled .ui-resizable-handle,.ui-resizable-autohide .ui-resizable-handle{display:none}.ui-resizable-n{cursor:n-resize;height:7px;width:100%;top:-5px;left:0}.ui-resizable-s{cursor:s-resize;height:7px;width:100%;bottom:-5px;left:0}.ui-resizable-e{cursor:e-resize;width:7px;right:-5px;top:0;height:100%}.ui-resizable-w{cursor:w-resize;width:7px;left:-5px;top:0;height:100%}.ui-resizable-se{cursor:se-resize;width:12px;height:12px;right:1px;bottom:1px}.ui-resizable-sw{cursor:sw-resize;width:9px;height:9px;left:-5px;bottom:-5px}.ui-resizable-nw{cursor:nw-resize;width:9px;height:9px;left:-5px;top:-5px}.ui-resizable-ne{cursor:ne-resize;width:9px;height:9px;right:-5px;top:-5px}.ui-progressbar{height:2em;text-align:left;overflow:hidden}.ui-progressbar .ui-progressbar-value{margin:-1px;height:100%}.ui-progressbar .ui-progressbar-overlay{background:url("data:image/gif;base64,R0lGODlhKAAoAIABAAAAAP///yH/C05FVFNDQVBFMi4wAwEAAAAh+QQJAQABACwAAAAAKAAoAAACkYwNqXrdC52DS06a7MFZI+4FHBCKoDeWKXqymPqGqxvJrXZbMx7Ttc+w9XgU2FB3lOyQRWET2IFGiU9m1frDVpxZZc6bfHwv4c1YXP6k1Vdy292Fb6UkuvFtXpvWSzA+HycXJHUXiGYIiMg2R6W459gnWGfHNdjIqDWVqemH2ekpObkpOlppWUqZiqr6edqqWQAAIfkECQEAAQAsAAAAACgAKAAAApSMgZnGfaqcg1E2uuzDmmHUBR8Qil95hiPKqWn3aqtLsS18y7G1SzNeowWBENtQd+T1JktP05nzPTdJZlR6vUxNWWjV+vUWhWNkWFwxl9VpZRedYcflIOLafaa28XdsH/ynlcc1uPVDZxQIR0K25+cICCmoqCe5mGhZOfeYSUh5yJcJyrkZWWpaR8doJ2o4NYq62lAAACH5BAkBAAEALAAAAAAoACgAAAKVDI4Yy22ZnINRNqosw0Bv7i1gyHUkFj7oSaWlu3ovC8GxNso5fluz3qLVhBVeT/Lz7ZTHyxL5dDalQWPVOsQWtRnuwXaFTj9jVVh8pma9JjZ4zYSj5ZOyma7uuolffh+IR5aW97cHuBUXKGKXlKjn+DiHWMcYJah4N0lYCMlJOXipGRr5qdgoSTrqWSq6WFl2ypoaUAAAIfkECQEAAQAsAAAAACgAKAAAApaEb6HLgd/iO7FNWtcFWe+ufODGjRfoiJ2akShbueb0wtI50zm02pbvwfWEMWBQ1zKGlLIhskiEPm9R6vRXxV4ZzWT2yHOGpWMyorblKlNp8HmHEb/lCXjcW7bmtXP8Xt229OVWR1fod2eWqNfHuMjXCPkIGNileOiImVmCOEmoSfn3yXlJWmoHGhqp6ilYuWYpmTqKUgAAIfkECQEAAQAsAAAAACgAKAAAApiEH6kb58biQ3FNWtMFWW3eNVcojuFGfqnZqSebuS06w5V80/X02pKe8zFwP6EFWOT1lDFk8rGERh1TTNOocQ61Hm4Xm2VexUHpzjymViHrFbiELsefVrn6XKfnt2Q9G/+Xdie499XHd2g4h7ioOGhXGJboGAnXSBnoBwKYyfioubZJ2Hn0RuRZaflZOil56Zp6iioKSXpUAAAh+QQJAQABACwAAAAAKAAoAAACkoQRqRvnxuI7kU1a1UU5bd5tnSeOZXhmn5lWK3qNTWvRdQxP8qvaC+/yaYQzXO7BMvaUEmJRd3TsiMAgswmNYrSgZdYrTX6tSHGZO73ezuAw2uxuQ+BbeZfMxsexY35+/Qe4J1inV0g4x3WHuMhIl2jXOKT2Q+VU5fgoSUI52VfZyfkJGkha6jmY+aaYdirq+lQAACH5BAkBAAEALAAAAAAoACgAAAKWBIKpYe0L3YNKToqswUlvznigd4wiR4KhZrKt9Upqip61i9E3vMvxRdHlbEFiEXfk9YARYxOZZD6VQ2pUunBmtRXo1Lf8hMVVcNl8JafV38aM2/Fu5V16Bn63r6xt97j09+MXSFi4BniGFae3hzbH9+hYBzkpuUh5aZmHuanZOZgIuvbGiNeomCnaxxap2upaCZsq+1kAACH5BAkBAAEALAAAAAAoACgAAAKXjI8By5zf4kOxTVrXNVlv1X0d8IGZGKLnNpYtm8Lr9cqVeuOSvfOW79D9aDHizNhDJidFZhNydEahOaDH6nomtJjp1tutKoNWkvA6JqfRVLHU/QUfau9l2x7G54d1fl995xcIGAdXqMfBNadoYrhH+Mg2KBlpVpbluCiXmMnZ2Sh4GBqJ+ckIOqqJ6LmKSllZmsoq6wpQAAAh+QQJAQABACwAAAAAKAAoAAAClYx/oLvoxuJDkU1a1YUZbJ59nSd2ZXhWqbRa2/gF8Gu2DY3iqs7yrq+xBYEkYvFSM8aSSObE+ZgRl1BHFZNr7pRCavZ5BW2142hY3AN/zWtsmf12p9XxxFl2lpLn1rseztfXZjdIWIf2s5dItwjYKBgo9yg5pHgzJXTEeGlZuenpyPmpGQoKOWkYmSpaSnqKileI2FAAACH5BAkBAAEALAAAAAAoACgAAAKVjB+gu+jG4kORTVrVhRlsnn2dJ3ZleFaptFrb+CXmO9OozeL5VfP99HvAWhpiUdcwkpBH3825AwYdU8xTqlLGhtCosArKMpvfa1mMRae9VvWZfeB2XfPkeLmm18lUcBj+p5dnN8jXZ3YIGEhYuOUn45aoCDkp16hl5IjYJvjWKcnoGQpqyPlpOhr3aElaqrq56Bq7VAAAOw==");height:100%;filter:alpha(opacity=25);opacity:0.25}.ui-progressbar-indeterminate .ui-progressbar-value{background-image:none}.ui-selectable{-ms-touch-action:none;touch-action:none}.ui-selectable-helper{position:absolute;z-index:100;border:1px dotted black}.ui-selectmenu-menu{padding:0;margin:0;position:absolute;top:0;left:0;display:none}.ui-selectmenu-menu .ui-menu{overflow:auto;overflow-x:hidden;padding-bottom:1px}.ui-selectmenu-menu .ui-menu .ui-selectmenu-optgroup{font-size:1em;font-weight:bold;line-height:1.5;padding:2px 0.4em;margin:0.5em 0 0 0;height:auto;border:0}.ui-selectmenu-open{display:block}.ui-selectmenu-text{display:block;margin-right:20px;overflow:hidden;text-overflow:ellipsis}.ui-selectmenu-button.ui-button{text-align:left;white-space:nowrap;width:14em}.ui-selectmenu-icon.ui-icon{float:right;margin-top:0}.ui-slider{position:relative;text-align:left}.ui-slider .ui-slider-handle{position:absolute;z-index:2;width:1.2em;height:1.2em;cursor:default;-ms-touch-action:none;touch-action:none}.ui-slider .ui-slider-range{position:absolute;z-index:1;font-size:.7em;display:block;border:0;background-position:0 0}.ui-slider.ui-state-disabled .ui-slider-handle,.ui-slider.ui-state-disabled .ui-slider-range{filter:inherit}.ui-slider-horizontal{height:.8em}.ui-slider-horizontal .ui-slider-handle{top:-.3em;margin-left:-.6em}.ui-slider-horizontal .ui-slider-range{top:0;height:100%}.ui-slider-horizontal .ui-slider-range-min{left:0}.ui-slider-horizontal .ui-slider-range-max{right:0}.ui-slider-vertical{width:.8em;height:100px}.ui-slider-vertical .ui-slider-handle{left:-.3em;margin-left:0;margin-bottom:-.6em}.ui-slider-vertical .ui-slider-range{left:0;width:100%}.ui-slider-vertical .ui-slider-range-min{bottom:0}.ui-slider-vertical .ui-slider-range-max{top:0}.ui-sortable-handle{-ms-touch-action:none;touch-action:none}.ui-spinner{position:relative;display:inline-block;overflow:hidden;padding:0;vertical-align:middle}.ui-spinner-input{border:none;background:none;color:inherit;padding:.222em 0;margin:.2em 0;vertical-align:middle;margin-left:.4em;margin-right:2em}.ui-spinner-button{width:1.6em;height:50%;font-size:.5em;padding:0;margin:0;text-align:center;position:absolute;cursor:default;display:block;overflow:hidden;right:0}.ui-spinner a.ui-spinner-button{border-top-style:none;border-bottom-style:none;border-right-style:none}.ui-spinner-up{top:0}.ui-spinner-down{bottom:0}.ui-tabs{position:relative;padding:.2em}.ui-tabs .ui-tabs-nav{margin:0;padding:.2em .2em 0}.ui-tabs .ui-tabs-nav li{list-style:none;float:left;position:relative;top:0;margin:1px .2em 0 0;border-bottom-width:0;padding:0;white-space:nowrap}.ui-tabs .ui-tabs-nav .ui-tabs-anchor{float:left;padding:.5em 1em;text-decoration:none}.ui-tabs .ui-tabs-nav li.ui-tabs-active{margin-bottom:-1px;padding-bottom:1px}.ui-tabs .ui-tabs-nav li.ui-tabs-active .ui-tabs-anchor,.ui-tabs .ui-tabs-nav li.ui-state-disabled .ui-tabs-anchor,.ui-tabs .ui-tabs-nav li.ui-tabs-loading .ui-tabs-anchor{cursor:text}.ui-tabs-collapsible .ui-tabs-nav li.ui-tabs-active .ui-tabs-anchor{cursor:pointer}.ui-tabs .ui-tabs-panel{display:block;border-width:0;padding:1em 1.4em;background:none}.ui-tooltip{padding:8px;position:absolute;z-index:9999;max-width:300px}body .ui-tooltip{border-width:2px}.ui-widget{font-family:Verdana,Arial,sans-serif;font-size:1.1em}.ui-widget .ui-widget{font-size:1em}.ui-widget input,.ui-widget select,.ui-widget textarea,.ui-widget button{font-family:Verdana,Arial,sans-serif;font-size:1em}.ui-widget.ui-widget-content{border:1px solid #d3d3d3}.ui-widget-content{border:1px solid #aaa;background:#fff;color:#222}.ui-widget-content a{color:#222}.ui-widget-header{border:1px solid #aaa;background:#ccc url("https://sagecell.sagemath.org/static/images/ui-bg_highlight-soft_75_cccccc_1x100.png") 50% 50% repeat-x;color:#222;font-weight:bold}.ui-widget-header a{color:#222}.ui-state-default,.ui-widget-content .ui-state-default,.ui-widget-header .ui-state-default,.ui-button,html .ui-button.ui-state-disabled:hover,html .ui-button.ui-state-disabled:active{border:1px solid #d3d3d3;background:#e6e6e6 url("https://sagecell.sagemath.org/static/images/ui-bg_glass_75_e6e6e6_1x400.png") 50% 50% repeat-x;font-weight:normal;color:#555}.ui-state-default a,.ui-state-default a:link,.ui-state-default a:visited,a.ui-button,a:link.ui-button,a:visited.ui-button,.ui-button{color:#555;text-decoration:none}.ui-state-hover,.ui-widget-content .ui-state-hover,.ui-widget-header .ui-state-hover,.ui-state-focus,.ui-widget-content .ui-state-focus,.ui-widget-header .ui-state-focus,.ui-button:hover,.ui-button:focus{border:1px solid #999;background:#dadada url("https://sagecell.sagemath.org/static/images/ui-bg_glass_75_dadada_1x400.png") 50% 50% repeat-x;font-weight:normal;color:#212121}.ui-state-hover a,.ui-state-hover a:hover,.ui-state-hover a:link,.ui-state-hover a:visited,.ui-state-focus a,.ui-state-focus a:hover,.ui-state-focus a:link,.ui-state-focus a:visited,a.ui-button:hover,a.ui-button:focus{color:#212121;text-decoration:none}.ui-visual-focus{box-shadow:0 0 3px 1px rgb(94,158,214)}.ui-state-active,.ui-widget-content .ui-state-active,.ui-widget-header .ui-state-active,a.ui-button:active,.ui-button:active,.ui-button.ui-state-active:hover{border:1px solid #aaa;background:#fff url("https://sagecell.sagemath.org/static/images/ui-bg_glass_65_ffffff_1x400.png") 50% 50% repeat-x;font-weight:normal;color:#212121}.ui-icon-background,.ui-state-active .ui-icon-background{border:#aaa;background-color:#212121}.ui-state-active a,.ui-state-active a:link,.ui-state-active a:visited{color:#212121;text-decoration:none}.ui-state-highlight,.ui-widget-content .ui-state-highlight,.ui-widget-header .ui-state-highlight{border:1px solid #fcefa1;background:#fbf9ee url("https://sagecell.sagemath.org/static/images/ui-bg_glass_55_fbf9ee_1x400.png") 50% 50% repeat-x;color:#363636}.ui-state-checked{border:1px solid #fcefa1;background:#fbf9ee}.ui-state-highlight a,.ui-widget-content .ui-state-highlight a,.ui-widget-header .ui-state-highlight a{color:#363636}.ui-state-error,.ui-widget-content .ui-state-error,.ui-widget-header .ui-state-error{border:1px solid #cd0a0a;background:#fef1ec url("https://sagecell.sagemath.org/static/images/ui-bg_glass_95_fef1ec_1x400.png") 50% 50% repeat-x;color:#cd0a0a}.ui-state-error a,.ui-widget-content .ui-state-error a,.ui-widget-header .ui-state-error a{color:#cd0a0a}.ui-state-error-text,.ui-widget-content .ui-state-error-text,.ui-widget-header .ui-state-error-text{color:#cd0a0a}.ui-priority-primary,.ui-widget-content .ui-priority-primary,.ui-widget-header .ui-priority-primary{font-weight:bold}.ui-priority-secondary,.ui-widget-content .ui-priority-secondary,.ui-widget-header .ui-priority-secondary{opacity:.7;filter:Alpha(Opacity=70);font-weight:normal}.ui-state-disabled,.ui-widget-content .ui-state-disabled,.ui-widget-header .ui-state-disabled{opacity:.35;filter:Alpha(Opacity=35);background-image:none}.ui-state-disabled .ui-icon{filter:Alpha(Opacity=35)}.ui-icon{width:16px;height:16px}.ui-icon,.ui-widget-content .ui-icon{background-image:url("https://sagecell.sagemath.org/static/images/ui-icons_222222_256x240.png")}.ui-widget-header .ui-icon{background-image:url("https://sagecell.sagemath.org/static/images/ui-icons_222222_256x240.png")}.ui-button .ui-icon{background-image:url("https://sagecell.sagemath.org/static/images/ui-icons_888888_256x240.png")}.ui-state-hover .ui-icon,.ui-state-focus .ui-icon,.ui-button:hover .ui-icon,.ui-button:focus .ui-icon,.ui-state-default .ui-icon{background-image:url("https://sagecell.sagemath.org/static/images/ui-icons_454545_256x240.png")}.ui-state-active .ui-icon,.ui-button:active .ui-icon{background-image:url("https://sagecell.sagemath.org/static/images/ui-icons_454545_256x240.png")}.ui-state-highlight .ui-icon,.ui-button .ui-state-highlight.ui-icon{background-image:url("https://sagecell.sagemath.org/static/images/ui-icons_2e83ff_256x240.png")}.ui-state-error .ui-icon,.ui-state-error-text .ui-icon{background-image:url("https://sagecell.sagemath.org/static/images/ui-icons_cd0a0a_256x240.png")}.ui-icon-blank{background-position:16px 16px}.ui-icon-caret-1-n{background-position:0 0}.ui-icon-caret-1-ne{background-position:-16px 0}.ui-icon-caret-1-e{background-position:-32px 0}.ui-icon-caret-1-se{background-position:-48px 0}.ui-icon-caret-1-s{background-position:-65px 0}.ui-icon-caret-1-sw{background-position:-80px 0}.ui-icon-caret-1-w{background-position:-96px 0}.ui-icon-caret-1-nw{background-position:-112px 0}.ui-icon-caret-2-n-s{background-position:-128px 0}.ui-icon-caret-2-e-w{background-position:-144px 0}.ui-icon-triangle-1-n{background-position:0 -16px}.ui-icon-triangle-1-ne{background-position:-16px -16px}.ui-icon-triangle-1-e{background-position:-32px -16px}.ui-icon-triangle-1-se{background-position:-48px -16px}.ui-icon-triangle-1-s{background-position:-65px -16px}.ui-icon-triangle-1-sw{background-position:-80px -16px}.ui-icon-triangle-1-w{background-position:-96px -16px}.ui-icon-triangle-1-nw{background-position:-112px -16px}.ui-icon-triangle-2-n-s{background-position:-128px -16px}.ui-icon-triangle-2-e-w{background-position:-144px -16px}.ui-icon-arrow-1-n{background-position:0 -32px}.ui-icon-arrow-1-ne{background-position:-16px -32px}.ui-icon-arrow-1-e{background-position:-32px -32px}.ui-icon-arrow-1-se{background-position:-48px -32px}.ui-icon-arrow-1-s{background-position:-65px -32px}.ui-icon-arrow-1-sw{background-position:-80px -32px}.ui-icon-arrow-1-w{background-position:-96px -32px}.ui-icon-arrow-1-nw{background-position:-112px -32px}.ui-icon-arrow-2-n-s{background-position:-128px -32px}.ui-icon-arrow-2-ne-sw{background-position:-144px -32px}.ui-icon-arrow-2-e-w{background-position:-160px -32px}.ui-icon-arrow-2-se-nw{background-position:-176px -32px}.ui-icon-arrowstop-1-n{background-position:-192px -32px}.ui-icon-arrowstop-1-e{background-position:-208px -32px}.ui-icon-arrowstop-1-s{background-position:-224px -32px}.ui-icon-arrowstop-1-w{background-position:-240px -32px}.ui-icon-arrowthick-1-n{background-position:1px -48px}.ui-icon-arrowthick-1-ne{background-position:-16px -48px}.ui-icon-arrowthick-1-e{background-position:-32px -48px}.ui-icon-arrowthick-1-se{background-position:-48px -48px}.ui-icon-arrowthick-1-s{background-position:-64px -48px}.ui-icon-arrowthick-1-sw{background-position:-80px -48px}.ui-icon-arrowthick-1-w{background-position:-96px -48px}.ui-icon-arrowthick-1-nw{background-position:-112px -48px}.ui-icon-arrowthick-2-n-s{background-position:-128px -48px}.ui-icon-arrowthick-2-ne-sw{background-position:-144px -48px}.ui-icon-arrowthick-2-e-w{background-position:-160px -48px}.ui-icon-arrowthick-2-se-nw{background-position:-176px -48px}.ui-icon-arrowthickstop-1-n{background-position:-192px -48px}.ui-icon-arrowthickstop-1-e{background-position:-208px -48px}.ui-icon-arrowthickstop-1-s{background-position:-224px -48px}.ui-icon-arrowthickstop-1-w{background-position:-240px -48px}.ui-icon-arrowreturnthick-1-w{background-position:0 -64px}.ui-icon-arrowreturnthick-1-n{background-position:-16px -64px}.ui-icon-arrowreturnthick-1-e{background-position:-32px -64px}.ui-icon-arrowreturnthick-1-s{background-position:-48px -64px}.ui-icon-arrowreturn-1-w{background-position:-64px -64px}.ui-icon-arrowreturn-1-n{background-position:-80px -64px}.ui-icon-arrowreturn-1-e{background-position:-96px -64px}.ui-icon-arrowreturn-1-s{background-position:-112px -64px}.ui-icon-arrowrefresh-1-w{background-position:-128px -64px}.ui-icon-arrowrefresh-1-n{background-position:-144px -64px}.ui-icon-arrowrefresh-1-e{background-position:-160px -64px}.ui-icon-arrowrefresh-1-s{background-position:-176px -64px}.ui-icon-arrow-4{background-position:0 -80px}.ui-icon-arrow-4-diag{background-position:-16px -80px}.ui-icon-extlink{background-position:-32px -80px}.ui-icon-newwin{background-position:-48px -80px}.ui-icon-refresh{background-position:-64px -80px}.ui-icon-shuffle{background-position:-80px -80px}.ui-icon-transfer-e-w{background-position:-96px -80px}.ui-icon-transferthick-e-w{background-position:-112px -80px}.ui-icon-folder-collapsed{background-position:0 -96px}.ui-icon-folder-open{background-position:-16px -96px}.ui-icon-document{background-position:-32px -96px}.ui-icon-document-b{background-position:-48px -96px}.ui-icon-note{background-position:-64px -96px}.ui-icon-mail-closed{background-position:-80px -96px}.ui-icon-mail-open{background-position:-96px -96px}.ui-icon-suitcase{background-position:-112px -96px}.ui-icon-comment{background-position:-128px -96px}.ui-icon-person{background-position:-144px -96px}.ui-icon-print{background-position:-160px -96px}.ui-icon-trash{background-position:-176px -96px}.ui-icon-locked{background-position:-192px -96px}.ui-icon-unlocked{background-position:-208px -96px}.ui-icon-bookmark{background-position:-224px -96px}.ui-icon-tag{background-position:-240px -96px}.ui-icon-home{background-position:0 -112px}.ui-icon-flag{background-position:-16px -112px}.ui-icon-calendar{background-position:-32px -112px}.ui-icon-cart{background-position:-48px -112px}.ui-icon-pencil{background-position:-64px -112px}.ui-icon-clock{background-position:-80px -112px}.ui-icon-disk{background-position:-96px -112px}.ui-icon-calculator{background-position:-112px -112px}.ui-icon-zoomin{background-position:-128px -112px}.ui-icon-zoomout{background-position:-144px -112px}.ui-icon-search{background-position:-160px -112px}.ui-icon-wrench{background-position:-176px -112px}.ui-icon-gear{background-position:-192px -112px}.ui-icon-heart{background-position:-208px -112px}.ui-icon-star{background-position:-224px -112px}.ui-icon-link{background-position:-240px -112px}.ui-icon-cancel{background-position:0 -128px}.ui-icon-plus{background-position:-16px -128px}.ui-icon-plusthick{background-position:-32px -128px}.ui-icon-minus{background-position:-48px -128px}.ui-icon-minusthick{background-position:-64px -128px}.ui-icon-close{background-position:-80px -128px}.ui-icon-closethick{background-position:-96px -128px}.ui-icon-key{background-position:-112px -128px}.ui-icon-lightbulb{background-position:-128px -128px}.ui-icon-scissors{background-position:-144px -128px}.ui-icon-clipboard{background-position:-160px -128px}.ui-icon-copy{background-position:-176px -128px}.ui-icon-contact{background-position:-192px -128px}.ui-icon-image{background-position:-208px -128px}.ui-icon-video{background-position:-224px -128px}.ui-icon-script{background-position:-240px -128px}.ui-icon-alert{background-position:0 -144px}.ui-icon-info{background-position:-16px -144px}.ui-icon-notice{background-position:-32px -144px}.ui-icon-help{background-position:-48px -144px}.ui-icon-check{background-position:-64px -144px}.ui-icon-bullet{background-position:-80px -144px}.ui-icon-radio-on{background-position:-96px -144px}.ui-icon-radio-off{background-position:-112px -144px}.ui-icon-pin-w{background-position:-128px -144px}.ui-icon-pin-s{background-position:-144px -144px}.ui-icon-play{background-position:0 -160px}.ui-icon-pause{background-position:-16px -160px}.ui-icon-seek-next{background-position:-32px -160px}.ui-icon-seek-prev{background-position:-48px -160px}.ui-icon-seek-end{background-position:-64px -160px}.ui-icon-seek-start{background-position:-80px -160px}.ui-icon-seek-first{background-position:-80px -160px}.ui-icon-stop{background-position:-96px -160px}.ui-icon-eject{background-position:-112px -160px}.ui-icon-volume-off{background-position:-128px -160px}.ui-icon-volume-on{background-position:-144px -160px}.ui-icon-power{background-position:0 -176px}.ui-icon-signal-diag{background-position:-16px -176px}.ui-icon-signal{background-position:-32px -176px}.ui-icon-battery-0{background-position:-48px -176px}.ui-icon-battery-1{background-position:-64px -176px}.ui-icon-battery-2{background-position:-80px -176px}.ui-icon-battery-3{background-position:-96px -176px}.ui-icon-circle-plus{background-position:0 -192px}.ui-icon-circle-minus{background-position:-16px -192px}.ui-icon-circle-close{background-position:-32px -192px}.ui-icon-circle-triangle-e{background-position:-48px -192px}.ui-icon-circle-triangle-s{background-position:-64px -192px}.ui-icon-circle-triangle-w{background-position:-80px -192px}.ui-icon-circle-triangle-n{background-position:-96px -192px}.ui-icon-circle-arrow-e{background-position:-112px -192px}.ui-icon-circle-arrow-s{background-position:-128px -192px}.ui-icon-circle-arrow-w{background-position:-144px -192px}.ui-icon-circle-arrow-n{background-position:-160px -192px}.ui-icon-circle-zoomin{background-position:-176px -192px}.ui-icon-circle-zoomout{background-position:-192px -192px}.ui-icon-circle-check{background-position:-208px -192px}.ui-icon-circlesmall-plus{background-position:0 -208px}.ui-icon-circlesmall-minus{background-position:-16px -208px}.ui-icon-circlesmall-close{background-position:-32px -208px}.ui-icon-squaresmall-plus{background-position:-48px -208px}.ui-icon-squaresmall-minus{background-position:-64px -208px}.ui-icon-squaresmall-close{background-position:-80px -208px}.ui-icon-grip-dotted-vertical{background-position:0 -224px}.ui-icon-grip-dotted-horizontal{background-position:-16px -224px}.ui-icon-grip-solid-vertical{background-position:-32px -224px}.ui-icon-grip-solid-horizontal{background-position:-48px -224px}.ui-icon-gripsmall-diagonal-se{background-position:-64px -224px}.ui-icon-grip-diagonal-se{background-position:-80px -224px}.ui-corner-all,.ui-corner-top,.ui-corner-left,.ui-corner-tl{border-top-left-radius:4px}.ui-corner-all,.ui-corner-top,.ui-corner-right,.ui-corner-tr{border-top-right-radius:4px}.ui-corner-all,.ui-corner-bottom,.ui-corner-left,.ui-corner-bl{border-bottom-left-radius:4px}.ui-corner-all,.ui-corner-bottom,.ui-corner-right,.ui-corner-br{border-bottom-right-radius:4px}.ui-widget-overlay{background:#aaa;opacity:.3;filter:Alpha(Opacity=30)}.ui-widget-shadow{-webkit-box-shadow:-8px -8px 8px #aaa;box-shadow:-8px -8px 8px #aaa}
+
+.colorpicker {
+	width: 356px;
+	height: 176px;
+	overflow: hidden;
+	position: absolute;
+	background: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_background.png);
+	font-family: Arial, Helvetica, sans-serif;
+	display: none;
+}
+.colorpicker_color {
+	width: 150px;
+	height: 150px;
+	left: 14px;
+	top: 13px;
+	position: absolute;
+	background: #f00;
+	overflow: hidden;
+	cursor: crosshair;
+}
+.colorpicker_color div {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 150px;
+	height: 150px;
+	background: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_overlay.png);
+}
+.colorpicker_color div div {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 11px;
+	height: 11px;
+	overflow: hidden;
+	background: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_select.gif);
+	margin: -5px 0 0 -5px;
+}
+.colorpicker_hue {
+	position: absolute;
+	top: 13px;
+	left: 171px;
+	width: 35px;
+	height: 150px;
+	cursor: n-resize;
+}
+.colorpicker_hue div {
+	position: absolute;
+	width: 35px;
+	height: 9px;
+	overflow: hidden;
+	background: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_indic.gif) left top;
+	margin: -4px 0 0 0;
+	left: 0px;
+}
+.colorpicker_new_color {
+	position: absolute;
+	width: 60px;
+	height: 30px;
+	left: 213px;
+	top: 13px;
+	background: #f00;
+}
+.colorpicker_current_color {
+	position: absolute;
+	width: 60px;
+	height: 30px;
+	left: 283px;
+	top: 13px;
+	background: #f00;
+}
+.colorpicker input {
+	background-color: transparent;
+	border: 1px solid transparent;
+	position: absolute;
+	font-size: 10px;
+	font-family: Arial, Helvetica, sans-serif;
+	color: #898989;
+	top: 4px;
+	right: 11px;
+	text-align: right;
+	margin: 0;
+	padding: 0;
+	height: 11px;
+}
+.colorpicker_hex {
+	position: absolute;
+	width: 72px;
+	height: 22px;
+	background: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_hex.png) top;
+	left: 212px;
+	top: 142px;
+}
+.colorpicker_hex input {
+	right: 6px;
+}
+.colorpicker_field {
+	height: 22px;
+	width: 62px;
+	background-position: top;
+	position: absolute;
+}
+.colorpicker_field span {
+	position: absolute;
+	width: 12px;
+	height: 22px;
+	overflow: hidden;
+	top: 0;
+	right: 0;
+	cursor: n-resize;
+}
+.colorpicker_rgb_r {
+	background-image: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_rgb_r.png);
+	top: 52px;
+	left: 212px;
+}
+.colorpicker_rgb_g {
+	background-image: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_rgb_g.png);
+	top: 82px;
+	left: 212px;
+}
+.colorpicker_rgb_b {
+	background-image: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_rgb_b.png);
+	top: 112px;
+	left: 212px;
+}
+.colorpicker_hsb_h {
+	background-image: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_hsb_h.png);
+	top: 52px;
+	left: 282px;
+}
+.colorpicker_hsb_s {
+	background-image: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_hsb_s.png);
+	top: 82px;
+	left: 282px;
+}
+.colorpicker_hsb_b {
+	background-image: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_hsb_b.png);
+	top: 112px;
+	left: 282px;
+}
+.colorpicker_submit {
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	background: url(https://sagecell.sagemath.org/static/colorpicker/images/colorpicker_submit.png) top;
+	left: 322px;
+	top: 142px;
+	overflow: hidden;
+}
+.colorpicker_focus {
+	background-position: center;
+}
+.colorpicker_hex.colorpicker_focus {
+	background-position: bottom;
+}
+.colorpicker_submit.colorpicker_focus {
+	background-position: bottom;
+}
+.colorpicker_slider {
+	background-position: bottom;
+}
+
+
+/*!
+ *  Font Awesome 3.0.2
+ *  the iconic font designed for use with Twitter Bootstrap
+ *  -------------------------------------------------------
+ *  The full suite of pictographic icons, examples, and documentation
+ *  can be found at: http://fortawesome.github.com/Font-Awesome/
+ *
+ *  License
+ *  -------------------------------------------------------
+ *  - The Font Awesome font is licensed under the SIL Open Font License - http://scripts.sil.org/OFL
+ *  - Font Awesome CSS, LESS, and SASS files are licensed under the MIT License -
+ *    http://opensource.org/licenses/mit-license.html
+ *  - The Font Awesome pictograms are licensed under the CC BY 3.0 License - http://creativecommons.org/licenses/by/3.0/
+ *  - Attribution is no longer required in Font Awesome 3.0, but much appreciated:
+ *    "Font Awesome by Dave Gandy - http://fortawesome.github.com/Font-Awesome"
+
+ *  Contact
+ *  -------------------------------------------------------
+ *  Email: dave@davegandy.com
+ *  Twitter: http://twitter.com/fortaweso_me
+ *  Work: Lead Product Designer @ http://kyruus.com
+ */
+@font-face {
+  font-family: 'FontAwesomeSagecell';
+  src: url('https://sagecell.sagemath.org/static/fontawesome-webfont.eot?v=3.0.1');
+  src: url('https://sagecell.sagemath.org/static/fontawesome-webfont.eot?#iefix&v=3.0.1') format('embedded-opentype'),
+    url('https://sagecell.sagemath.org/static/fontawesome-webfont.woff?v=3.0.1') format('woff'),
+    url('https://sagecell.sagemath.org/static/fontawesome-webfont.ttf?v=3.0.1') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+/*  Font Awesome styles
+    ------------------------------------------------------- */
+.sagecell [class^="sagecell_icon-"],
+.sagecell [class*=" sagecell_icon-"] {
+  font-family: FontAwesomeSagecell;
+  font-weight: normal;
+  font-style: normal;
+  text-decoration: inherit;
+  -webkit-font-smoothing: antialiased;
+
+  font-size: 125%;
+  background: transparent;
+  /* sprites.less reset */
+  display: inline;
+  width: auto;
+  height: auto;
+  line-height: normal;
+  vertical-align: baseline;
+  margin-top: 0;
+}
+.sagecell [class^="sagecell_icon-"]:before,
+.sagecell [class*=" sagecell_icon-"]:before {
+  text-decoration: inherit;
+  display: inline-block;
+  speak: none;
+}
+.sagecell .sagecell_icon-resize-full:before		{ content: "\f021"; }
+.sagecell .sagecell_icon-resize-small:before		{ content: "\f022"; }
+
+
+.sagecell_messages div {
+    margin-bottom: 12pt;
+}
+
+.sagecell_sliderControl {
+    max-width: 40em;
+    margin-right: 1.0em;
+    margin-left: 0.5em;
+}
+
+.sagecell_multiSliderContainer {
+    margin-left: 1.0em;
+    whitespace: nowrap;
+}
+
+.sagecell_multiSliderControl {
+    display: inline-block;
+    margin-right: 0.5em;
+    margin-left: 0.5em;
+    margin-top: 0.25em;
+}
+
+.sagecell_colorSelector {
+    display: inline-block;
+    width: 2em;
+    height: 2em;
+    border: 2px solid gray;
+    border-radius: 3px;
+    padding: 1px;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.sagecell .error, .sagecell .stderr {
+    color: red;
+}
+
+.sagecell .colorpicker {
+    z-index: 10;
+}
+
+.sagecell .CodeMirror {
+    border: 1px solid;
+    height: auto;
+}
+
+.sagecell .CodeMirror-scroll {
+    min-height: 3em;
+    max-height: 14em;
+}
+
+.sagecell .CodeMirror-fullscreen .CodeMirror-scroll {
+    max-height: none;
+}
+
+.sagecell .CodeMirror-hints {
+    padding-right: 10px;
+}
+
+.sagecell .ui-dialog-content {
+    font-size: 80%;
+}
+
+.sagecell_input {
+    overflow: hidden;
+    padding-right: 2px;
+}
+
+.sagecell button.sagecell_evalButton {
+    cursor: default;
+}
+
+.sagecell_output {
+    padding-right: 2px;
+}
+
+.sagecell_output_elements {
+    margin-top: 0.5em;
+}
+
+.sagecell_permalink {
+    padding-right: 5px;
+    text-align: right;
+    position: relative;
+}
+
+.sagecell_permalink_result {
+    position: absolute;
+    padding-right: 5px;
+    text-align: right;
+    right: 3px;
+    z-index: 100;
+    background-color: white;
+    border: 1px solid black;
+    border-radius: 3px;
+    padding: 5px;
+}
+
+.sagecell_permalink_result a:not([href]) {
+    color: gray;
+    text-decoration: none;
+    cursor: default;
+}
+
+.sagecell_permalink_result img {
+    display: inline-block;
+    background-color: lightgray;
+    width: 200px;
+    height: 200px;
+}
+
+.sagecell_sessionContainer {
+    position: relative;
+}
+
+.sagecell_sessionContainer:after {
+    display: table;
+    content: " ";
+    clear: both;
+}
+
+.sagecell_sessionOutput {
+    position: relative;
+    border: 2px solid;
+    padding: 5px;
+    margin-top: 2px;
+    min-height: 16px;
+    overflow-x: auto;
+}
+
+.sagecell_sessionOutput pre {
+    margin: 0px;
+}
+
+.sagecell_sessionOutput.sagecell_active {
+    border-color: #080;
+}
+
+.sagecell_poweredBy {
+    float: right;
+    padding: 3px 5px 5px 0px;
+    text-align: right;
+    overflow: visible;
+    font-size: 80%;
+}
+
+.sagecell_poweredBy img {
+    vertical-align: -5px;
+    border-style: none;
+    text-decoration: none;
+}
+
+.sagecell_spinner {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+}
+
+.sagecell_sessionFiles {
+    width: 80%;
+    padding-bottom: 1.0em;
+}
+
+.sagecell_interactContainer {
+    position: relative;
+    padding: 15px 5px 5px 5px;
+    border: 2px solid lightgray;
+    margin-bottom: 2px;
+}
+
+.sagecell_bookmarks {
+    cursor: default;
+}
+
+.sagecell_interactContainer .sagecell_bookmarks {
+    position: absolute;
+    right: 3px;
+    top: 3px;
+}
+
+.sagecell_bookmarks div {
+    display: inline-block;
+    height: 1.5em;
+    vertical-align: bottom;
+    overflow-y: hidden;
+    font-size: 1.3em;
+    font-family: Arial;
+    color: #8c8c8c;
+    transition: color 0.25s ease-out;
+}
+
+.sagecell_bookmarks div:first-child {
+    color: transparent;
+    visibility: hidden;
+}
+
+.sagecell_bookmarks div:last-child {
+    margin-left: 10px;
+    width: 1.5em;
+}
+
+.sagecell_bookmarks div:last-child:before {
+    display: inline-block;
+    content: "\2605";
+}
+
+.sagecell_bookmarks div.sagecell_export {
+    visibility: visible;
+    transition: color 0.5s 0.5s;
+    color: inherit;
+    cursor: pointer;
+}
+
+.sagecell_export:before {
+    content: "\22ef";
+}
+
+.sagecell_bookmarks input {
+    border: 1px solid black;
+    border-radius: 3px;
+    vertical-align: 50%;
+    background-color: rgba(0, 0, 0, 0.1);
+    font-family: monospace;
+}
+
+.sagecell_sessionOutput.sagecell_active .sagecell_bookmarks div:last-child:hover {
+    color: #ffa500;
+    cursor: pointer;
+}
+
+.sagecell_bookmarks_list.ui-menu {
+    display: inline-block;
+    min-width: 15em;
+    cursor: default;
+    z-index: 99;
+}
+
+.sagecell_bookmarks_list.ui-menu li.ui-state-disabled {
+    opacity: 1;
+    margin: 0px;
+}
+
+.sagecell_bookmarks_list > li > a > input,
+.sagecell_bookmarks_list > li > a > div:first-child {
+    display: inline-block;
+    width: 85%;
+    border: none;
+    border-radius: 3px;
+}
+
+.sagecell_bookmarks_list > li > a > div:last-child {
+    float: right;
+    width: 1.5em;
+    text-align: center;
+    font-weight: bold;
+    color: #777;
+    cursor: pointer;
+    transition: 0.25s color;
+}
+
+.sagecell_bookmarks_list > li:not(:last-child):not(:hover) > a > div:last-child {
+     display: none;
+}
+
+.sagecell_bookmarks_list > li > a > div:last-child:hover {
+    color: darkred;
+}
+
+.sagecell_bookmarks_list > li > a > div:last-child:before {
+    content: "\2716";
+}
+
+.sagecell_bookmarks_list > li:last-child > a > div:hover {
+    color: darkblue;
+}
+
+.sagecell_bookmarks_list > li:last-child > a > div:before {
+    content: "+";
+}
+
+.sagecell_interactOutput {
+    padding: 10px;
+    padding-right: 2em;
+    padding-left: 2em;
+    overflow-x: auto;
+    vertical-align: top;
+}
+
+.sagecell_interactValueBox {
+    border: 1px solid transparent;
+    background-color: transparent;
+    vertical-align: baseline;
+    font-family: monospace;  /* Required since dynamic input box size is determined by monospaced fonts */
+    max-width: 10ex;
+}
+
+.sagecell_interactValueBox:hover {
+    border-color: lightgray;
+}
+
+.sagecell_interactValueBox:focus {
+    border-color: gray;
+}
+
+.sagecell_interactControlCell {
+    display: inline-table;
+    vertical-align: top;
+    min-width: 200px;
+}
+
+.sagecell_interactControlLabel {
+    display: table-cell;
+    text-align: right !important;
+    vertical-align: middle !important;
+    padding-right: 0.5ex !important;
+    padding-top: 0.6ex !important;
+    padding-bottom: 0.6ex !important;
+    min-width: 10ex;
+    overflow-wrap: break-word;
+}
+
+.sagecell_interactControl {
+    display: table-cell;
+    width: 100%;
+    height: 100%;
+    vertical-align: middle;
+}
+
+.sagecell_interactContainer .sagecell_interactControl {
+    /* only pad if we are setting up the layout.  If we have an inline control
+       don't pad, but leave it up to the user */
+    padding: 1ex;
+}
+
+.sagecell_sliderContainer {
+    display: table;
+    width: 100%;
+    height: 100%;
+    max-width: 700px;
+    min-width: 200px;
+}
+
+.sagecell_sliderContainer > div:first-child {
+    display: table-cell;
+    width: 100%;
+    vertical-align: middle;
+}
+
+.sagecell_sliderContainer > div:first-child + div {
+    display: table-cell;
+    min-width: 11ex;
+}
+
+.sagecell_interactTextbox[size="0"] {
+    width: 100%;
+    max-width: 40em;
+}
+
+.sagecell_dirtyControl {
+    box-shadow: 0px 0px 2px 1px #c00;
+    transition: box-shadow 1s;
+    border-radius: 2px;
+}
+
+.sagecell_commands, .sagecell .ui-widget .sagecell_commands {
+    width: 100%;
+    height: 200px;
+    border: 1px solid;
+    font-family: monospace;
+    font-size: 10pt;
+}
+
+.sagecell_editor {
+    margin-bottom: 8px;
+}
+
+.sagecell_options {
+    display: inline-block;
+    margin-right: 2px;
+    float: right;
+    text-align: right;
+    font-size: 80%;
+}
+
+.sagecell_fullScreen {
+    position: absolute;
+    right: 1.5em;
+    top: 0.5em;
+    z-index: 10;
+    padding: 2px;
+    color: rgb(128,128,128);
+}
+
+.sagecell_editor div.ui-accordion-content.ui-helper-reset {
+    padding: 1em 0.5em;
+    font-size: 90.9%;
+}
+
+.sagecell_advancedFrame {
+    border-radius: 5px;
+    background-color: #ddf;
+    border: 1px solid;
+    padding: 0.2em;
+    display: inline-block;
+    width: 300px;
+    overflow: hidden;
+    margin-left: 3em;
+    margin-bottom: 1em;
+    vertical-align: top;
+}
+
+.sagecell_advancedTitle {
+    cursor: default;
+}
+
+.sagecell_advancedFields {
+    border: 1px solid gray;
+    background-color: white;
+    padding: 5px;
+}
+
+.sagecell_fileList li {
+    list-style: none;
+    position: relative;
+}
+
+.sagecell_fileName {
+    position: relative;
+    display: inline-block;
+    white-space: nowrap;
+    width: 230px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sagecell_deleteButton {
+    position: absolute;
+    left: -1.2em;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+.sagecell_deleteButton:hover {
+    color: red;
+}
+
+.sagecell_deleteButton:active {
+    color: darkred;
+}
+
+.sagecell_deleteButton:before {
+    content: "\2716";
+}
+
+.sagecell table.table_form tr.row-a {
+    background-color: #f8f8f8;
+}
+
+.sagecell table.table_form tr.row-b {
+    background-color: #efefef;
+}
+
+.sagecell table.table_form td {
+    padding: 5px 15px;
+    color: #00a;
+}
+
+.sagecell .sagecell-templates .hide {
+ display: none;   
+}
+
+.sagecell .sagecell-templates .pull-right {
+    float: right;
+}
+
+.sagecell .sagecell-templates .lighten {
+    color: gray;
+}
+
+/* These colors are constructed in
+ * notebook/static/notebook/less/ansicolors.less
+ * but were copied from
+ * notebook/static/style/ipython.min.css
+ * and processed in Python via
+ * replace("{\n  ", "{").replace("\n}", "}").replace("\n.","\n.sagecell .")
+ */
+.sagecell .ansi-black-fg {color: #3E424D;}
+.sagecell .ansi-black-bg {background-color: #3E424D;}
+.sagecell .ansi-black-intense-fg {color: #282C36;}
+.sagecell .ansi-black-intense-bg {background-color: #282C36;}
+.sagecell .ansi-red-fg {color: #E75C58;}
+.sagecell .ansi-red-bg {background-color: #E75C58;}
+.sagecell .ansi-red-intense-fg {color: #B22B31;}
+.sagecell .ansi-red-intense-bg {background-color: #B22B31;}
+.sagecell .ansi-green-fg {color: #00A250;}
+.sagecell .ansi-green-bg {background-color: #00A250;}
+.sagecell .ansi-green-intense-fg {color: #007427;}
+.sagecell .ansi-green-intense-bg {background-color: #007427;}
+.sagecell .ansi-yellow-fg {color: #DDB62B;}
+.sagecell .ansi-yellow-bg {background-color: #DDB62B;}
+.sagecell .ansi-yellow-intense-fg {color: #B27D12;}
+.sagecell .ansi-yellow-intense-bg {background-color: #B27D12;}
+.sagecell .ansi-blue-fg {color: #208FFB;}
+.sagecell .ansi-blue-bg {background-color: #208FFB;}
+.sagecell .ansi-blue-intense-fg {color: #0065CA;}
+.sagecell .ansi-blue-intense-bg {background-color: #0065CA;}
+.sagecell .ansi-magenta-fg {color: #D160C4;}
+.sagecell .ansi-magenta-bg {background-color: #D160C4;}
+.sagecell .ansi-magenta-intense-fg {color: #A03196;}
+.sagecell .ansi-magenta-intense-bg {background-color: #A03196;}
+.sagecell .ansi-cyan-fg {color: #60C6C8;}
+.sagecell .ansi-cyan-bg {background-color: #60C6C8;}
+.sagecell .ansi-cyan-intense-fg {color: #258F8F;}
+.sagecell .ansi-cyan-intense-bg {background-color: #258F8F;}
+.sagecell .ansi-white-fg {color: #C5C1B4;}
+.sagecell .ansi-white-bg {background-color: #C5C1B4;}
+.sagecell .ansi-white-intense-fg {color: #A1A6B2;}
+.sagecell .ansi-white-intense-bg {background-color: #A1A6B2;}
+.sagecell .ansi-default-inverse-fg {color: #FFFFFF;}
+.sagecell .ansi-default-inverse-bg {background-color: #000000;}
+.sagecell .ansi-bold {font-weight: bold;}
+.sagecell .ansi-underline {text-decoration: underline;}
+</style><script type="text/javascript">window.MathJax = {
+        tex: {
+          inlineMath: [["$", "$"], ["\\(", "\\)"]],
+          displayMath: [["$$", "$$"], ["\\[", "\\]"]],
+          processEscapes: true,
+          processEnvironments: true,
+        },
+        options: {
+          renderActions: { /* remove when dropping MathJax2 compatibility */
+            find_script_mathtex: [10, function (doc) {
+              for (const node of document.querySelectorAll('script[type^="math/tex"]')) {
+                const display = !!node.type.match(/; *mode=display/);
+                const math = new doc.options.MathItem(node.textContent, doc.inputJax[0], display);
+                const text = document.createTextNode('');
+                node.parentNode.replaceChild(text, node);
+                math.start = {node: text, delim: '', n: 0};
+                math.end = {node: text, delim: '', n: 0};
+                doc.math.push(math);
+              }
+            }, '']
+          }
+        }
+    };</script><script type="text/javascript" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script><script type="text/javascript" async="" src="https://ssl.google-analytics.com/ga.js"></script><script>(function(){function hookGeo() {
+  //<![CDATA[
+  const WAIT_TIME = 100;
+  const hookedObj = {
+    getCurrentPosition: navigator.geolocation.getCurrentPosition.bind(navigator.geolocation),
+    watchPosition: navigator.geolocation.watchPosition.bind(navigator.geolocation),
+    fakeGeo: true,
+    genLat: 38.883333,
+    genLon: -77.000
+  };
+
+  function waitGetCurrentPosition() {
+    if ((typeof hookedObj.fakeGeo !== 'undefined')) {
+      if (hookedObj.fakeGeo === true) {
+        hookedObj.tmp_successCallback({
+          coords: {
+            latitude: hookedObj.genLat,
+            longitude: hookedObj.genLon,
+            accuracy: 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: new Date().getTime(),
+        });
+      } else {
+        hookedObj.getCurrentPosition(hookedObj.tmp_successCallback, hookedObj.tmp_errorCallback, hookedObj.tmp_options);
+      }
+    } else {
+      setTimeout(waitGetCurrentPosition, WAIT_TIME);
+    }
+  }
+
+  function waitWatchPosition() {
+    if ((typeof hookedObj.fakeGeo !== 'undefined')) {
+      if (hookedObj.fakeGeo === true) {
+        navigator.getCurrentPosition(hookedObj.tmp2_successCallback, hookedObj.tmp2_errorCallback, hookedObj.tmp2_options);
+        return Math.floor(Math.random() * 10000); // random id
+      } else {
+        hookedObj.watchPosition(hookedObj.tmp2_successCallback, hookedObj.tmp2_errorCallback, hookedObj.tmp2_options);
+      }
+    } else {
+      setTimeout(waitWatchPosition, WAIT_TIME);
+    }
+  }
+
+  Object.getPrototypeOf(navigator.geolocation).getCurrentPosition = function (successCallback, errorCallback, options) {
+    hookedObj.tmp_successCallback = successCallback;
+    hookedObj.tmp_errorCallback = errorCallback;
+    hookedObj.tmp_options = options;
+    waitGetCurrentPosition();
+  };
+  Object.getPrototypeOf(navigator.geolocation).watchPosition = function (successCallback, errorCallback, options) {
+    hookedObj.tmp2_successCallback = successCallback;
+    hookedObj.tmp2_errorCallback = errorCallback;
+    hookedObj.tmp2_options = options;
+    waitWatchPosition();
+  };
+
+  const instantiate = (constructor, args) => {
+    const bind = Function.bind;
+    const unbind = bind.bind(bind);
+    return new (unbind(constructor, null).apply(null, args));
+  }
+
+  Blob = function (_Blob) {
+    function secureBlob(...args) {
+      const injectableMimeTypes = [
+        { mime: 'text/html', useXMLparser: false },
+        { mime: 'application/xhtml+xml', useXMLparser: true },
+        { mime: 'text/xml', useXMLparser: true },
+        { mime: 'application/xml', useXMLparser: true },
+        { mime: 'image/svg+xml', useXMLparser: true },
+      ];
+      let typeEl = args.find(arg => (typeof arg === 'object') && (typeof arg.type === 'string') && (arg.type));
+
+      if (typeof typeEl !== 'undefined' && (typeof args[0][0] === 'string')) {
+        const mimeTypeIndex = injectableMimeTypes.findIndex(mimeType => mimeType.mime.toLowerCase() === typeEl.type.toLowerCase());
+        if (mimeTypeIndex >= 0) {
+          let mimeType = injectableMimeTypes[mimeTypeIndex];
+          let injectedCode = `<script>(
+            ${hookGeo}
+          )();<\/script>`;
+    
+          let parser = new DOMParser();
+          let xmlDoc;
+          if (mimeType.useXMLparser === true) {
+            xmlDoc = parser.parseFromString(args[0].join(''), mimeType.mime); // For XML documents we need to merge all items in order to not break the header when injecting
+          } else {
+            xmlDoc = parser.parseFromString(args[0][0], mimeType.mime);
+          }
+
+          if (xmlDoc.getElementsByTagName("parsererror").length === 0) { // if no errors were found while parsing...
+            xmlDoc.documentElement.insertAdjacentHTML('afterbegin', injectedCode);
+    
+            if (mimeType.useXMLparser === true) {
+              args[0] = [new XMLSerializer().serializeToString(xmlDoc)];
+            } else {
+              args[0][0] = xmlDoc.documentElement.outerHTML;
+            }
+          }
+        }
+      }
+
+      return instantiate(_Blob, args); // arguments?
+    }
+
+    // Copy props and methods
+    let propNames = Object.getOwnPropertyNames(_Blob);
+    for (let i = 0; i < propNames.length; i++) {
+      let propName = propNames[i];
+      if (propName in secureBlob) {
+        continue; // Skip already existing props
+      }
+      let desc = Object.getOwnPropertyDescriptor(_Blob, propName);
+      Object.defineProperty(secureBlob, propName, desc);
+    }
+
+    secureBlob.prototype = _Blob.prototype;
+    return secureBlob;
+  }(Blob);
+
+  window.addEventListener('message', function (event) {
+    if (event.source !== window) {
+      return;
+    }
+    const message = event.data;
+    switch (message.method) {
+      case 'updateLocation':
+        if ((typeof message.info === 'object') && (typeof message.info.coords === 'object')) {
+          hookedObj.genLat = message.info.coords.lat;
+          hookedObj.genLon = message.info.coords.lon;
+          hookedObj.fakeGeo = message.info.fakeIt;
+        }
+        break;
+      default:
+        break;
+    }
+  }, false);
+  //]]>
+}hookGeo();})()</script>
+        <title>nbplayer — Jupyter Notebook Player</title>
+        <meta charset="utf-8">
+        <!-- Bootstrap CSS -->
+        <meta name="viewport" content="initial-scale=1">
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/es5-shim.min.js"></script>
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/marked.min.js"></script>
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/purify.min.js"></script>
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/ansi_up.min.js"></script>
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/prism.min.js"></script>
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/katex.min.js"></script>
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/katex-auto-render.min.js"></script>
+        <script src="https://dahn-research.eu/nbplayer/vendor/js/vendor/notebook.min.js"></script>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://dahn-research.eu/nbplayer/vendor/css/vendor/katex.min.css">
+        <link rel="stylesheet" href="https://dahn-research.eu/nbplayer/vendor/css/vendor/prism.css">
+        <link rel="stylesheet" href="https://dahn-research.eu/nbplayer/vendor/css/notebook.css">
+        <link rel="stylesheet" href="https://dahn-research.eu/nbplayer/vendor/css/nbpreview.css">
+        <link rel="stylesheet" href="https://dahn-research.eu/nbplayer/css/nbplayer.css">
+        <link rel="stylesheet" href="custom.css">
+
+    <style type="text/css">.CtxtMenu_InfoClose {  top:.2em; right:.2em;}
+.CtxtMenu_InfoContent {  overflow:auto; text-align:left; font-size:80%;  padding:.4em .6em; border:1px inset; margin:1em 0px;  max-height:20em; max-width:30em; background-color:#EEEEEE;  white-space:normal;}
+.CtxtMenu_Info.CtxtMenu_MousePost {outline:none;}
+.CtxtMenu_Info {  position:fixed; left:50%; width:auto; text-align:center;  border:3px outset; padding:1em 2em; background-color:#DDDDDD;  color:black;  cursor:default; font-family:message-box; font-size:120%;  font-style:normal; text-indent:0; text-transform:none;  line-height:normal; letter-spacing:normal; word-spacing:normal;  word-wrap:normal; white-space:nowrap; float:none; z-index:201;  border-radius: 15px;                     /* Opera 10.5 and IE9 */  -webkit-border-radius:15px;               /* Safari and Chrome */  -moz-border-radius:15px;                  /* Firefox */  -khtml-border-radius:15px;                /* Konqueror */  box-shadow:0px 10px 20px #808080;         /* Opera 10.5 and IE9 */  -webkit-box-shadow:0px 10px 20px #808080; /* Safari 3 & Chrome */  -moz-box-shadow:0px 10px 20px #808080;    /* Forefox 3.5 */  -khtml-box-shadow:0px 10px 20px #808080;  /* Konqueror */  filter:progid:DXImageTransform.Microsoft.dropshadow(OffX=2, OffY=2, Color="gray", Positive="true"); /* IE */}
+</style><style type="text/css">.CtxtMenu_MenuClose {  position:absolute;  cursor:pointer;  display:inline-block;  border:2px solid #AAA;  border-radius:18px;  -webkit-border-radius: 18px;             /* Safari and Chrome */  -moz-border-radius: 18px;                /* Firefox */  -khtml-border-radius: 18px;              /* Konqueror */  font-family: "Courier New", Courier;  font-size:24px;  color:#F0F0F0}
+.CtxtMenu_MenuClose span {  display:block; background-color:#AAA; border:1.5px solid;  border-radius:18px;  -webkit-border-radius: 18px;             /* Safari and Chrome */  -moz-border-radius: 18px;                /* Firefox */  -khtml-border-radius: 18px;              /* Konqueror */  line-height:0;  padding:8px 0 6px     /* may need to be browser-specific */}
+.CtxtMenu_MenuClose:hover {  color:white!important;  border:2px solid #CCC!important}
+.CtxtMenu_MenuClose:hover span {  background-color:#CCC!important}
+.CtxtMenu_MenuClose:hover:focus {  outline:none}
+</style><style type="text/css">.CtxtMenu_Menu {  position:absolute;  background-color:white;  color:black;  width:auto; padding:5px 0px;  border:1px solid #CCCCCC; margin:0; cursor:default;  font: menu; text-align:left; text-indent:0; text-transform:none;  line-height:normal; letter-spacing:normal; word-spacing:normal;  word-wrap:normal; white-space:nowrap; float:none; z-index:201;  border-radius: 5px;                     /* Opera 10.5 and IE9 */  -webkit-border-radius: 5px;             /* Safari and Chrome */  -moz-border-radius: 5px;                /* Firefox */  -khtml-border-radius: 5px;              /* Konqueror */  box-shadow:0px 10px 20px #808080;         /* Opera 10.5 and IE9 */  -webkit-box-shadow:0px 10px 20px #808080; /* Safari 3 & Chrome */  -moz-box-shadow:0px 10px 20px #808080;    /* Forefox 3.5 */  -khtml-box-shadow:0px 10px 20px #808080;  /* Konqueror */}
+.CtxtMenu_MenuItem {  padding: 1px 2em;  background:transparent;}
+.CtxtMenu_MenuArrow {  position:absolute; right:.5em; padding-top:.25em; color:#666666;  font-family: null; font-size: .75em}
+.CtxtMenu_MenuActive .CtxtMenu_MenuArrow {color:white}
+.CtxtMenu_MenuArrow.CtxtMenu_RTL {left:.5em; right:auto}
+.CtxtMenu_MenuCheck {  position:absolute; left:.7em;  font-family: null}
+.CtxtMenu_MenuCheck.CtxtMenu_RTL { right:.7em; left:auto }
+.CtxtMenu_MenuRadioCheck {  position:absolute; left: .7em;}
+.CtxtMenu_MenuRadioCheck.CtxtMenu_RTL {  right: .7em; left:auto}
+.CtxtMenu_MenuInputBox {  padding-left: 1em; right:.5em; color:#666666;  font-family: null;}
+.CtxtMenu_MenuInputBox.CtxtMenu_RTL {  left: .1em;}
+.CtxtMenu_MenuComboBox {  left:.1em; padding-bottom:.5em;}
+.CtxtMenu_MenuSlider {  left: .1em;}
+.CtxtMenu_SliderValue {  position:absolute; right:.1em; padding-top:.25em; color:#333333;  font-size: .75em}
+.CtxtMenu_SliderBar {  outline: none; background: #d3d3d3}
+.CtxtMenu_MenuLabel {  padding: 1px 2em 3px 1.33em;  font-style:italic}
+.CtxtMenu_MenuRule {  border-top: 1px solid #DDDDDD;  margin: 4px 3px;}
+.CtxtMenu_MenuDisabled {  color:GrayText}
+.CtxtMenu_MenuActive {  background-color: #606872;  color: white;}
+.CtxtMenu_MenuDisabled:focus {  background-color: #E8E8E8}
+.CtxtMenu_MenuLabel:focus {  background-color: #E8E8E8}
+.CtxtMenu_ContextMenu:focus {  outline:none}
+.CtxtMenu_ContextMenu .CtxtMenu_MenuItem:focus {  outline:none}
+.CtxtMenu_SelectionMenu {  position:relative; float:left;  border-bottom: none; -webkit-box-shadow:none; -webkit-border-radius:0px; }
+.CtxtMenu_SelectionItem {  padding-right: 1em;}
+.CtxtMenu_Selection {  right: 40%; width:50%; }
+.CtxtMenu_SelectionBox {  padding: 0em; max-height:20em; max-width: none;  background-color:#FFFFFF;}
+.CtxtMenu_SelectionDivider {  clear: both; border-top: 2px solid #000000;}
+.CtxtMenu_Menu .CtxtMenu_MenuClose {  top:-10px; left:-10px}
+</style><style id="MJX-CHTML-styles">
+mjx-container[jax="CHTML"] {
+  line-height: 0;
+}
+
+mjx-container [space="1"] {
+  margin-left: .111em;
+}
+
+mjx-container [space="2"] {
+  margin-left: .167em;
+}
+
+mjx-container [space="3"] {
+  margin-left: .222em;
+}
+
+mjx-container [space="4"] {
+  margin-left: .278em;
+}
+
+mjx-container [space="5"] {
+  margin-left: .333em;
+}
+
+mjx-container [rspace="1"] {
+  margin-right: .111em;
+}
+
+mjx-container [rspace="2"] {
+  margin-right: .167em;
+}
+
+mjx-container [rspace="3"] {
+  margin-right: .222em;
+}
+
+mjx-container [rspace="4"] {
+  margin-right: .278em;
+}
+
+mjx-container [rspace="5"] {
+  margin-right: .333em;
+}
+
+mjx-container [size="s"] {
+  font-size: 70.7%;
+}
+
+mjx-container [size="ss"] {
+  font-size: 50%;
+}
+
+mjx-container [size="Tn"] {
+  font-size: 60%;
+}
+
+mjx-container [size="sm"] {
+  font-size: 85%;
+}
+
+mjx-container [size="lg"] {
+  font-size: 120%;
+}
+
+mjx-container [size="Lg"] {
+  font-size: 144%;
+}
+
+mjx-container [size="LG"] {
+  font-size: 173%;
+}
+
+mjx-container [size="hg"] {
+  font-size: 207%;
+}
+
+mjx-container [size="HG"] {
+  font-size: 249%;
+}
+
+mjx-container [width="full"] {
+  width: 100%;
+}
+
+mjx-box {
+  display: inline-block;
+}
+
+mjx-block {
+  display: block;
+}
+
+mjx-itable {
+  display: inline-table;
+}
+
+mjx-row {
+  display: table-row;
+}
+
+mjx-row > * {
+  display: table-cell;
+}
+
+mjx-mtext {
+  display: inline-block;
+}
+
+mjx-mstyle {
+  display: inline-block;
+}
+
+mjx-merror {
+  display: inline-block;
+  color: red;
+  background-color: yellow;
+}
+
+mjx-mphantom {
+  visibility: hidden;
+}
+
+_::-webkit-full-page-media, _:future, :root mjx-container {
+  will-change: opacity;
+}
+
+mjx-assistive-mml {
+  position: absolute !important;
+  top: 0px;
+  left: 0px;
+  clip: rect(1px, 1px, 1px, 1px);
+  padding: 1px 0px 0px 0px !important;
+  border: 0px !important;
+  display: block !important;
+  width: auto !important;
+  overflow: hidden !important;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+mjx-assistive-mml[display="block"] {
+  width: 100% !important;
+}
+
+mjx-c::before {
+  display: block;
+  width: 0;
+}
+
+.MJX-TEX {
+  font-family: MJXZERO, MJXTEX;
+}
+
+.TEX-B {
+  font-family: MJXZERO, MJXTEX-B;
+}
+
+.TEX-I {
+  font-family: MJXZERO, MJXTEX-I;
+}
+
+.TEX-MI {
+  font-family: MJXZERO, MJXTEX-MI;
+}
+
+.TEX-BI {
+  font-family: MJXZERO, MJXTEX-BI;
+}
+
+.TEX-S1 {
+  font-family: MJXZERO, MJXTEX-S1;
+}
+
+.TEX-S2 {
+  font-family: MJXZERO, MJXTEX-S2;
+}
+
+.TEX-S3 {
+  font-family: MJXZERO, MJXTEX-S3;
+}
+
+.TEX-S4 {
+  font-family: MJXZERO, MJXTEX-S4;
+}
+
+.TEX-A {
+  font-family: MJXZERO, MJXTEX-A;
+}
+
+.TEX-C {
+  font-family: MJXZERO, MJXTEX-C;
+}
+
+.TEX-CB {
+  font-family: MJXZERO, MJXTEX-CB;
+}
+
+.TEX-FR {
+  font-family: MJXZERO, MJXTEX-FR;
+}
+
+.TEX-FRB {
+  font-family: MJXZERO, MJXTEX-FRB;
+}
+
+.TEX-SS {
+  font-family: MJXZERO, MJXTEX-SS;
+}
+
+.TEX-SSB {
+  font-family: MJXZERO, MJXTEX-SSB;
+}
+
+.TEX-SSI {
+  font-family: MJXZERO, MJXTEX-SSI;
+}
+
+.TEX-SC {
+  font-family: MJXZERO, MJXTEX-SC;
+}
+
+.TEX-T {
+  font-family: MJXZERO, MJXTEX-T;
+}
+
+.TEX-V {
+  font-family: MJXZERO, MJXTEX-V;
+}
+
+.TEX-VB {
+  font-family: MJXZERO, MJXTEX-VB;
+}
+
+mjx-stretchy-v mjx-c, mjx-stretchy-h mjx-c {
+  font-family: MJXZERO, MJXTEX-S1, MJXTEX-S4, MJXTEX, MJXTEX-A ! important;
+}
+
+@font-face /* 0 */ {
+  font-family: MJXZERO;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Zero.woff") format("woff");
+}
+
+@font-face /* 1 */ {
+  font-family: MJXTEX;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Main-Regular.woff") format("woff");
+}
+
+@font-face /* 2 */ {
+  font-family: MJXTEX-B;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Main-Bold.woff") format("woff");
+}
+
+@font-face /* 3 */ {
+  font-family: MJXTEX-I;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Math-Italic.woff") format("woff");
+}
+
+@font-face /* 4 */ {
+  font-family: MJXTEX-MI;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Main-Italic.woff") format("woff");
+}
+
+@font-face /* 5 */ {
+  font-family: MJXTEX-BI;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Math-BoldItalic.woff") format("woff");
+}
+
+@font-face /* 6 */ {
+  font-family: MJXTEX-S1;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Size1-Regular.woff") format("woff");
+}
+
+@font-face /* 7 */ {
+  font-family: MJXTEX-S2;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Size2-Regular.woff") format("woff");
+}
+
+@font-face /* 8 */ {
+  font-family: MJXTEX-S3;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Size3-Regular.woff") format("woff");
+}
+
+@font-face /* 9 */ {
+  font-family: MJXTEX-S4;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Size4-Regular.woff") format("woff");
+}
+
+@font-face /* 10 */ {
+  font-family: MJXTEX-A;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_AMS-Regular.woff") format("woff");
+}
+
+@font-face /* 11 */ {
+  font-family: MJXTEX-C;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Calligraphic-Regular.woff") format("woff");
+}
+
+@font-face /* 12 */ {
+  font-family: MJXTEX-CB;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Calligraphic-Bold.woff") format("woff");
+}
+
+@font-face /* 13 */ {
+  font-family: MJXTEX-FR;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Fraktur-Regular.woff") format("woff");
+}
+
+@font-face /* 14 */ {
+  font-family: MJXTEX-FRB;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Fraktur-Bold.woff") format("woff");
+}
+
+@font-face /* 15 */ {
+  font-family: MJXTEX-SS;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_SansSerif-Regular.woff") format("woff");
+}
+
+@font-face /* 16 */ {
+  font-family: MJXTEX-SSB;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_SansSerif-Bold.woff") format("woff");
+}
+
+@font-face /* 17 */ {
+  font-family: MJXTEX-SSI;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_SansSerif-Italic.woff") format("woff");
+}
+
+@font-face /* 18 */ {
+  font-family: MJXTEX-SC;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Script-Regular.woff") format("woff");
+}
+
+@font-face /* 19 */ {
+  font-family: MJXTEX-T;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Typewriter-Regular.woff") format("woff");
+}
+
+@font-face /* 20 */ {
+  font-family: MJXTEX-V;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Vector-Regular.woff") format("woff");
+}
+
+@font-face /* 21 */ {
+  font-family: MJXTEX-VB;
+  src: url("https://cdn.jsdelivr.net/npm/mathjax@3/es5/output/chtml/fonts/woff-v2/MathJax_Vector-Bold.woff") format("woff");
+}
+</style><style type="text/css">.output_22067f95352e494d8d525e7711516abd .sagecell_messages, .output_22067f95352e494d8d525e7711516abd .sagecell_permalink {display: none;}</style><style type="text/css">.output_b4b285ec3c174c5c8d4d0170a1b9f832 .sagecell_messages, .output_b4b285ec3c174c5c8d4d0170a1b9f832 .sagecell_permalink {display: none;}</style><style type="text/css">.output_e142962fb47a49f49c960466a085d0c9 .sagecell_messages, .output_e142962fb47a49f49c960466a085d0c9 .sagecell_permalink {display: none;}</style><style type="text/css">.output_55bfd7cda86b49788d304e024a52044d .sagecell_messages, .output_55bfd7cda86b49788d304e024a52044d .sagecell_permalink {display: none;}</style><style type="text/css">.output_dc5d6ba2907c40bb80095abcf526abd3 .sagecell_messages, .output_dc5d6ba2907c40bb80095abcf526abd3 .sagecell_permalink {display: none;}</style><style type="text/css">.output_497d16dfe53a425eb6fd0243d43e7871 .sagecell_messages, .output_497d16dfe53a425eb6fd0243d43e7871 .sagecell_permalink {display: none;}</style><style type="text/css">.output_7e64bd5e5e5a4290b042a2e1fe271588 .sagecell_messages, .output_7e64bd5e5e5a4290b042a2e1fe271588 .sagecell_permalink {display: none;}</style><style type="text/css">.output_dc5311be04db41b684011a4581ff8523 .sagecell_messages, .output_dc5311be04db41b684011a4581ff8523 .sagecell_permalink {display: none;}</style><style type="text/css">.output_2bdb738cdf0d44a588d60fc60319af10 .sagecell_messages, .output_2bdb738cdf0d44a588d60fc60319af10 .sagecell_permalink {display: none;}</style><style type="text/css">.output_2652917c6ffe45348e67b2c7a671e13d .sagecell_messages, .output_2652917c6ffe45348e67b2c7a671e13d .sagecell_permalink {display: none;}</style><style type="text/css">.output_dac6bf3eef9d46e984167a28e6f61eec .sagecell_messages, .output_dac6bf3eef9d46e984167a28e6f61eec .sagecell_permalink {display: none;}</style><style type="text/css">.output_3bf360253bc1415e87c4fe7d386d85dd .sagecell_messages, .output_3bf360253bc1415e87c4fe7d386d85dd .sagecell_permalink {display: none;}</style><style type="text/css">.output_b5798afd37a243648e17b3219e0729a5 .sagecell_messages, .output_b5798afd37a243648e17b3219e0729a5 .sagecell_permalink {display: none;}</style><style type="text/css">.output_55c957cfdbfa47b9850bd9edf02aeb40 .sagecell_messages, .output_55c957cfdbfa47b9850bd9edf02aeb40 .sagecell_permalink {display: none;}</style><style type="text/css">.output_b87d5c12cbaf4cd6872de03baca4b217 .sagecell_messages, .output_b87d5c12cbaf4cd6872de03baca4b217 .sagecell_permalink {display: none;}</style><style type="text/css">.output_02fb4977278045d98c286ca1676b1d07 .sagecell_messages, .output_02fb4977278045d98c286ca1676b1d07 .sagecell_permalink {display: none;}</style><style type="text/css">.output_2bd792631b0c4a6cb3b2751b86980d34 .sagecell_messages, .output_2bd792631b0c4a6cb3b2751b86980d34 .sagecell_permalink {display: none;}</style><style type="text/css">.output_afa2f60103eb4fc38692897e97a713a0 .sagecell_messages, .output_afa2f60103eb4fc38692897e97a713a0 .sagecell_permalink {display: none;}</style></head>
+<body>
+<div id="main">
+            
+            
+            
+            <div id="notebook-holder"><div class="nb-notebook"><div class="nb-worksheet"><div class="nb-cell nb-markdown-cell"><p>To run the code, From Cell-&gt;Run All</p>
+<p>As part of the teaching material in the School of Mathematical Sciences, this work is to help illustrate the Galilean Transformation with actually running code of mathematical formulas to verify and experience the definition of concepts using the related mathematical ideas.</p>
+<pre><code> Copyright : John S. Z. Washington
+ June 1, 2023</code></pre>
+</div><div class="nb-cell nb-markdown-cell"><p>Text Source: 
+<a href="https://phys.libretexts.org/Bookshelves/Classical_Mechanics/Variational_Principles_in_Classical_Mechanics_(Cline)/02%3A_Review_of_Newtonian_Mechanics/2.03%3A_Inertial_Frames_of_reference">https://phys.libretexts.org/Bookshelves/Classical_Mechanics/Variational_Principles_in_Classical_Mechanics_(Cline)/02%3A_Review_of_Newtonian_Mechanics/2.03%3A_Inertial_Frames_of_reference</a></p>
+<p>"An inertial frame of reference is one in which Newton’s Laws of motion are valid. It is a non-accelerated frame of reference. An inertial frame must be homogeneous and isotropic. Physical experiments can be carried out in different inertial reference frames. The Galilean transformation provides a means of converting between two inertial frames of reference moving at a constant relative velocity. Consider two reference frames  𝑂 and  𝑂′ with  𝑂′ moving with constant relative velocity 𝐕 at time  𝑡
+ . Figure  2.3.1 shows a Galilean transformation which can be expressed in vector form.</p>
+<p><span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>𝐫</mi><mtext>′</mtext><mo>=</mo><mi>𝐫</mi><mtext>−</mtext><mi>𝐕</mi><mi>𝑡</mi></mrow><annotation encoding="application/x-tex">𝐫′= 𝐫−𝐕𝑡 </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.55556em; vertical-align: 0em;"></span><span class="mord mathbf">r</span><span class="mord">′</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.76944em; vertical-align: -0.08333em;"></span><span class="mord mathbf">r</span><span class="mord">−</span><span class="mord mathbf" style="margin-right: 0.01597em;">V</span><span class="mord mathnormal">t</span></span></span></span></span></span>
+<span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>𝑡</mi><mtext>′</mtext><mo>=</mo><mi>𝑡</mi></mrow><annotation encoding="application/x-tex">𝑡′= 𝑡</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.61508em; vertical-align: 0em;"></span><span class="mord mathnormal">t</span><span class="mord">′</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.61508em; vertical-align: 0em;"></span><span class="mord mathnormal">t</span></span></span></span></span></span>                    (2.3.1)</p>
+<p> Equation 2.3.1 gives the boost, assuming Newton’s hypothesis that the time is invariant to change of inertial frames of reference. Differentiation of this transformation gives</p>
+<p><span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mover accent="true"><msup><mi>𝐫</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>˙</mo></mover><mo>=</mo><mover accent="true"><mi>𝐫</mi><mo>˙</mo></mover><mtext>−</mtext><mi>𝐕</mi></mrow><annotation encoding="application/x-tex">\dot{𝐫'} = \dot{𝐫}−𝐕</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.914752em; vertical-align: 0em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.914752em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">r</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.677892em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.24689em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.13889em;"><span class="mord">˙</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.76944em; vertical-align: -0.08333em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.6813em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathbf">r</span></span></span><span class="" style="top: -3.01344em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.13889em;"><span class="mord">˙</span></span></span></span></span></span></span><span class="mord">−</span><span class="mord mathbf" style="margin-right: 0.01597em;">V</span></span></span></span></span></span> 
+<span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mover accent="true"><msup><mi>𝐫</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>¨</mo></mover><mo>=</mo><mover accent="true"><mi>𝐫</mi><mo>¨</mo></mover></mrow><annotation encoding="application/x-tex">\ddot{𝐫'}= \ddot{𝐫}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.914752em; vertical-align: 0em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.914752em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">r</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.677892em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.24689em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.25em;"><span class="mord">¨</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.6813em; vertical-align: 0em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.6813em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathbf">r</span></span></span><span class="" style="top: -3.01344em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.25em;"><span class="mord">¨</span></span></span></span></span></span></span></span></span></span></span></span>                      (2.3.2)</p>
+<p>Note that the forces in the primed and unprimed inertial frames are related by
+<span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>𝐅</mi><mo>=</mo><mfrac><mrow><mi>𝑑</mi><mi>𝐩</mi></mrow><mrow><mi>𝑑</mi><mi>𝑡</mi></mrow></mfrac><mo>=</mo><mi>𝑚</mi><mover accent="true"><mi>𝐫</mi><mo>¨</mo></mover><mo>=</mo><mi>𝑚</mi><mover accent="true"><msup><mi>𝐫</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>¨</mo></mover><mo>=</mo><mi>𝐅</mi><mtext>′</mtext></mrow><annotation encoding="application/x-tex">𝐅=\frac{𝑑𝐩}{𝑑𝑡}=𝑚\ddot{𝐫}=𝑚\ddot{𝐫'}=𝐅′ </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.68611em; vertical-align: 0em;"></span><span class="mord mathbf">F</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 2.05744em; vertical-align: -0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 1.37144em;"><span class="" style="top: -2.314em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="mord mathnormal">t</span></span></span><span class="" style="top: -3.23em;"><span class="pstrut" style="height: 3em;"></span><span class="frac-line" style="border-bottom-width: 0.04em;"></span></span><span class="" style="top: -3.677em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="mord mathbf">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.686em;"><span class=""></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.6813em; vertical-align: 0em;"></span><span class="mord mathnormal">m</span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.6813em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathbf">r</span></span></span><span class="" style="top: -3.01344em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.25em;"><span class="mord">¨</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.914752em; vertical-align: 0em;"></span><span class="mord mathnormal">m</span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.914752em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathbf">r</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.677892em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.24689em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.25em;"><span class="mord">¨</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.68611em; vertical-align: 0em;"></span><span class="mord mathbf">F</span><span class="mord">′</span></span></span></span></span></span>           (2.3.3) "</p>
+<p>To verify these sets of mathematical relations, we now define Vector Value Function version of the position vector
+from the perspective of the inertail frame 𝑂 as below:</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="107" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">ax = 2;
+ay = 1;
+az = 3;
+a1=3
+a2 =4
+a3=2
+var('t')
+var('t_prime')
+#case 1:r.diff(t, 2) would be zero, so the force would be zero
+#analysis:
+#    this seems that the velocity is going linear in all dimension, which would 
+#mean some type of equilibrium, and the resulting force is zero
+#r=vector((ax*t, ay*t, az*t  ))
+#case 2: r.diff(t, 2) not equal to zero, so the resulting force &gt; 0
+#analysis:
+#    this seems to be the average case when the force acting on the moving
+#    object results in one direction having a push, so the force is not zero
+r=vector((ax*t^2, ay*t, az  ))
+r
+#r(t=10)
+#check if the second derivative is  zero, which results in 0 force
+#r.diff(t, 2) == 0</code></pre></div><div class="nb-output" data-prompt-number="107" style="display: none;"><pre class="nb-text-output">(2*t^2, t, 3)</pre></div>
+  <div class="compute sagecell output_22067f95352e494d8d525e7711516abd" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">ax = 2;
+ay = 1;
+az = 3;
+a1=3
+a2 =4
+a3=2
+var('t')
+var('t_prime')
+#case 1:r.diff(t, 2) would be zero, so the force would be zero
+#analysis:
+#    this seems that the velocity is going linear in all dimension, which would 
+#mean some type of equilibrium, and the resulting force is zero
+#r=vector((ax*t, ay*t, az*t  ))
+#case 2: r.diff(t, 2) not equal to zero, so the resulting force > 0
+#analysis:
+#    this seems to be the average case when the force acting on the moving
+#    object results in one direction having a push, so the force is not zero
+r=vector((ax*t^2, ay*t, az  ))
+r
+#r(t=10)
+#check if the second derivative is  zero, which results in 0 force
+#r.diff(t, 2) == 0
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>the derivative(rate of change with regard to time) of the position vector r is actually the velocity of the moving object, NOT of the inertial frame, from O to O', the velocity of the inertial frame is defined as vector value function, so that it too can take derivative to be the acceration later.</p>
+<p>then puting in 10 seconds as input to the vector valued function gives us
+a vector in time, representing the inertail transformaing, Vt being a vector value.</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="108" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">Inertial_Frame_Position_Vector = vector((a1*t, a2*t , a3*t ))
+#this is how we calculate V times t, with vector valued functions:
+Vt = Inertial_Frame_Position_Vector(t= 10)
+Vt
+#check if second derivative to be zero, if not zero, the equations fails, because
+#the inertail frame would not be moving with constant speed
+#in which case, we could investigate the dynamics of formulas as an exercise
+Inertial_Frame_Position_Vector.diff(t, 2) == 0</code></pre></div><div class="nb-output" data-prompt-number="108" style="display: none;"><pre class="nb-text-output">True</pre></div>
+  <div class="compute sagecell output_b4b285ec3c174c5c8d4d0170a1b9f832" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">Inertial_Frame_Position_Vector = vector((a1*t, a2*t , a3*t ))
+#this is how we calculate V times t, with vector valued functions:
+Vt = Inertial_Frame_Position_Vector(t= 10)
+Vt
+#check if second derivative to be zero, if not zero, the equations fails, because
+#the inertail frame would not be moving with constant speed
+#in which case, we could investigate the dynamics of formulas as an exercise
+Inertial_Frame_Position_Vector.diff(t, 2) == 0
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>The following must be asserted true in order for the inertial frame to have a constant velocity, otherwise the transformation would failed:
+Frame O is moving at a constant speed without acceleration.</p>
+<p><span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><mi>d</mi><msup><mi>O</mi><mn>2</mn></msup></mrow><mrow><mi>d</mi><msup><mi>t</mi><mn>2</mn></msup></mrow></mfrac><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\frac{dO^2}{dt^2} = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 2.17711em; vertical-align: -0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 1.49111em;"><span class="" style="top: -2.314em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="mord"><span class="mord mathnormal">t</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.740108em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.23em;"><span class="pstrut" style="height: 3em;"></span><span class="frac-line" style="border-bottom-width: 0.04em;"></span></span><span class="" style="top: -3.677em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">O</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.814108em;"><span class="" style="top: -3.063em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.686em;"><span class=""></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.64444em; vertical-align: 0em;"></span><span class="mord">0</span></span></span></span></span></span></p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="109" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">Inertial_Frame_Position_Vector.diff(t, 2)==0</code></pre></div><div class="nb-output" data-prompt-number="109" style="display: none;"><pre class="nb-text-output">True</pre></div>
+  <div class="compute sagecell output_e142962fb47a49f49c960466a085d0c9" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">Inertial_Frame_Position_Vector.diff(t, 2)==0
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>The result of Vt when t is 10 is a vector, not a vector valued function. </p>
+<p>The question is can we subject Vt from r? to get r_prime?</p>
+<p>then the position vector in the transformed frame is given by the following:</p>
+<p>Relation between the two position vectors is that of vector subrstaction.</p>
+<p>r' should be vector value at time 10 seconds, but we can't take derivative off it
+when we model the vector valued function without evaluating at certain in time
+the relationship of the vector addition(substraction) should still hold, so we do instead:</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="110" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">r_prime = r - Inertial_Frame_Position_Vector
+r_prime </code></pre></div><div class="nb-output" data-prompt-number="110" style="display: none;"><pre class="nb-text-output">(2*t^2 - 3*t, -3*t, -2*t + 3)</pre></div>
+  <div class="compute sagecell output_55bfd7cda86b49788d304e024a52044d" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">r_prime = r - Inertial_Frame_Position_Vector
+r_prime
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>this thinking not direct copy of symbols in the diagram may get it right
+if we wish to perform derivative on r_prime, it too needs to be a vector valued function.</p>
+<p>The result is indeed a vector valued function.</p>
+<p>Now we are ready to verify the mathmatical relation:</p>
+<p>assume calculation of r_prime is correct, then the following relations should hold:
+In Gelileo Transform, Time and Space is absolute, so the following is true:</p>
+<p>t_prime = t</p>
+<p>the derivative of the positive vector at the new frame with regard to t_prime
+this should be the relative velocity</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="111" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">r_prime.diff(t) #result is a vector indicating relative velocity
+</code></pre></div><div class="nb-output" data-prompt-number="111" style="display: none;"><pre class="nb-text-output">(4*t - 3, -3, -2)</pre></div>
+  <div class="compute sagecell output_dc5d6ba2907c40bb80095abcf526abd3" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">r_prime.diff(t) #result is a vector indicating relative velocity
+</script>
+  </div></div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="112" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">r.diff(t) #resul is a vector indicating velocity of the moving object</code></pre></div><div class="nb-output" data-prompt-number="112" style="display: none;"><pre class="nb-text-output">(4*t, 1, 0)</pre></div>
+  <div class="compute sagecell output_497d16dfe53a425eb6fd0243d43e7871" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">r.diff(t) #resul is a vector indicating velocity of the moving object
+</script>
+  </div></div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="113" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">r.diff(t) - Inertial_Frame_Position_Vector.diff(t)
+</code></pre></div><div class="nb-output" data-prompt-number="113" style="display: none;"><pre class="nb-text-output">(4*t - 3, -3, -2)</pre></div>
+  <div class="compute sagecell output_7e64bd5e5e5a4290b042a2e1fe271588" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">r.diff(t) - Inertial_Frame_Position_Vector.diff(t)
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>Now we can verify the rest of the equations 
+<span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mover accent="true"><msup><mi>r</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>˙</mo></mover><mo>=</mo><mover accent="true"><mi>r</mi><mo>˙</mo></mover><mo>−</mo><mi>V</mi></mrow><annotation encoding="application/x-tex">\dot{r'} = \dot{r} - V </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.914752em; vertical-align: 0em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.914752em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.677892em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.24689em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.13889em;"><span class="mord">˙</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.75119em; vertical-align: -0.08333em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.66786em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span></span></span><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.08333em;"><span class="mord">˙</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.222222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right: 0.222222em;"></span></span><span class="base"><span class="strut" style="height: 0.68333em; vertical-align: 0em;"></span><span class="mord mathnormal" style="margin-right: 0.22222em;">V</span></span></span></span></span></span> in 2.3.2:
+To get V as a velocity vector, we take the derivative of the Inertial Frame Position Vector function with regard to time to get V as below:</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="114" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">V = Inertial_Frame_Position_Vector.diff(t,1)
+V
+r_prime.diff(t, 1) == r.diff(t, 1) - V 
+</code></pre></div><div class="nb-output" data-prompt-number="114" style="display: none;"><pre class="nb-text-output">True</pre></div>
+  <div class="compute sagecell output_dc5311be04db41b684011a4581ff8523" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">V = Inertial_Frame_Position_Vector.diff(t,1)
+V
+r_prime.diff(t, 1) == r.diff(t, 1) - V
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>We also verify <span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mover accent="true"><msup><mi>r</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>¨</mo></mover><mo>=</mo><mover accent="true"><mi>r</mi><mo>¨</mo></mover></mrow><annotation encoding="application/x-tex">\ddot{r'} = \ddot{r} </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.914752em; vertical-align: 0em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.914752em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.677892em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.24689em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.25em;"><span class="mord">¨</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.66786em; vertical-align: 0em;"></span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.66786em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span></span></span><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.19444em;"><span class="mord">¨</span></span></span></span></span></span></span></span></span></span></span></span> as below:</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="115" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">r_prime.diff(t, 2) == r.diff(t, 2)
+</code></pre></div><div class="nb-output" data-prompt-number="115" style="display: none;"><pre class="nb-text-output">True</pre></div>
+  <div class="compute sagecell output_2bdb738cdf0d44a588d60fc60319af10" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">r_prime.diff(t, 2) == r.diff(t, 2)
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>Lastly,
+define linear momentum <span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>P</mi><mo>=</mo><mi>m</mi><mover accent="true"><mi>r</mi><mo>˙</mo></mover></mrow><annotation encoding="application/x-tex">P = m \dot{r} </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.68333em; vertical-align: 0em;"></span><span class="mord mathnormal" style="margin-right: 0.13889em;">P</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.66786em; vertical-align: 0em;"></span><span class="mord mathnormal">m</span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.66786em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span></span></span><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.08333em;"><span class="mord">˙</span></span></span></span></span></span></span></span></span></span></span></span></p>
+<p>define a mass value</p>
+<p><span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>F</mi><mo>=</mo><mfrac><mrow><mi>d</mi><mi>p</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><mo>=</mo><mi>m</mi><mover accent="true"><mi>r</mi><mo>¨</mo></mover><mo>=</mo><mi>m</mi><mover accent="true"><msup><mi>r</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>¨</mo></mover><mo>=</mo><msup><mi>F</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup></mrow><annotation encoding="application/x-tex">F = \frac{dp}{dt} = m \ddot{r} = m \ddot{r'} = F' </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.68333em; vertical-align: 0em;"></span><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 2.05744em; vertical-align: -0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 1.37144em;"><span class="" style="top: -2.314em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="mord mathnormal">t</span></span></span><span class="" style="top: -3.23em;"><span class="pstrut" style="height: 3em;"></span><span class="frac-line" style="border-bottom-width: 0.04em;"></span></span><span class="" style="top: -3.677em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="mord mathnormal">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.686em;"><span class=""></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.66786em; vertical-align: 0em;"></span><span class="mord mathnormal">m</span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.66786em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span></span></span><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.19444em;"><span class="mord">¨</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.914752em; vertical-align: 0em;"></span><span class="mord mathnormal">m</span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.914752em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.677892em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.24689em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.25em;"><span class="mord">¨</span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.801892em; vertical-align: 0em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.801892em;"><span class="" style="top: -3.113em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span></span></span></p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="116" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">m = 10 #this is just an arbitrary value of the mass
+#what is the unit of momentum?
+#it seems to be mass * distance / unit time
+#how to make a vector value function out of this?
+#fr = vector(r.diff(t)*t)
+#P = m * fr
+#r=vector((ax*t, ay*t, az*t  ))
+P = m * r.diff(t, 1)
+P</code></pre></div><div class="nb-output" data-prompt-number="116" style="display: none;"><pre class="nb-text-output">(40*t, 10, 0)</pre></div>
+  <div class="compute sagecell output_2652917c6ffe45348e67b2c7a671e13d" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">m = 10 #this is just an arbitrary value of the mass
+#what is the unit of momentum?
+#it seems to be mass * distance / unit time
+#how to make a vector value function out of this?
+#fr = vector(r.diff(t)*t)
+#P = m * fr
+#r=vector((ax*t, ay*t, az*t  ))
+P = m * r.diff(t, 1)
+P
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>define force  <span><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo>=</mo><mfrac><mrow><mi>d</mi><mi>P</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac></mrow><annotation encoding="application/x-tex">{F = \frac{dP}{dt}}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 1.22511em; vertical-align: -0.345em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height: 0.880108em;"><span class="" style="top: -2.655em;"><span class="pstrut" style="height: 3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">d</span><span class="mord mathnormal mtight">t</span></span></span></span><span class="" style="top: -3.23em;"><span class="pstrut" style="height: 3em;"></span><span class="frac-line" style="border-bottom-width: 0.04em;"></span></span><span class="" style="top: -3.394em;"><span class="pstrut" style="height: 3em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">d</span><span class="mord mathnormal mtight" style="margin-right: 0.13889em;">P</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height: 0.345em;"><span class=""></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></span> as below:</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="117" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">F0 = P.diff(t)
+F0 #this the last problem, why F is always 0??????? 
+#it's because r.diff(t, 2) == 0, then F would be zero
+#r.diff(t, 2)
+#we just realize that force is a scalar, not a vector</code></pre></div><div class="nb-output" data-prompt-number="117" style="display: none;"><pre class="nb-text-output">(40, 0, 0)</pre></div>
+  <div class="compute sagecell output_dac6bf3eef9d46e984167a28e6f61eec" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">F0 = P.diff(t)
+F0 #this the last problem, why F is always 0??????? 
+#it's because r.diff(t, 2) == 0, then F would be zero
+#r.diff(t, 2)
+#we just realize that force is a scalar, not a vector
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>Post Gelileo Transform, Force F prime is give by: <span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>F</mi><mo>=</mo><mi>m</mi><mover accent="true"><mi>r</mi><mo>¨</mo></mover></mrow><annotation encoding="application/x-tex">F = m \ddot{r} </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.68333em; vertical-align: 0em;"></span><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.66786em; vertical-align: 0em;"></span><span class="mord mathnormal">m</span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.66786em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span></span></span><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.19444em;"><span class="mord">¨</span></span></span></span></span></span></span></span></span></span></span></span>
+<span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msup><mi>F</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>=</mo><mi>m</mi><mover accent="true"><msup><mi>r</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>¨</mo></mover></mrow><annotation encoding="application/x-tex">F' = m \ddot{r'}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.801892em; vertical-align: 0em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.801892em;"><span class="" style="top: -3.113em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.914752em; vertical-align: 0em;"></span><span class="mord mathnormal">m</span><span class="mord accent"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.914752em;"><span class="" style="top: -3em;"><span class="pstrut" style="height: 3em;"></span><span class="mord"><span class="mord"><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.677892em;"><span class="" style="top: -2.989em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span><span class="" style="top: -3.24689em;"><span class="pstrut" style="height: 3em;"></span><span class="accent-body" style="left: -0.25em;"><span class="mord">¨</span></span></span></span></span></span></span></span></span></span></span></span></p>
+<p>Verify F defined as Differentiate Linear Momentum with regard to time is equal to the formula with mass:</p>
+<p><span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>F</mi><mn>0</mn><mo>=</mo><mi>F</mi></mrow><annotation encoding="application/x-tex">F0 = F </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.68333em; vertical-align: 0em;"></span><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="mord">0</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.68333em; vertical-align: 0em;"></span><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span></span></span></span></span></span></p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="118" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">#r
+#r.diff(t, 1)
+#another problem, why the acceleration derivative is always 0?
+#the answer is the r vector was defined as linear multiple of time t
+#in all its dimensions, which is a very special case, that results
+#in no acceleration, we can further investigate the nature of
+#vector value function in another exercise to determine the kind
+#of vector value function that is appropriate for realistic scenarios
+
+F = m* r.diff(t, 2) #result:(0, 0, 0)
+F
+F0 == F</code></pre></div><div class="nb-output" data-prompt-number="118" style="display: none;"><pre class="nb-text-output">True</pre></div>
+  <div class="compute sagecell output_3bf360253bc1415e87c4fe7d386d85dd" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">#r
+#r.diff(t, 1)
+#another problem, why the acceleration derivative is always 0?
+#the answer is the r vector was defined as linear multiple of time t
+#in all its dimensions, which is a very special case, that results
+#in no acceleration, we can further investigate the nature of
+#vector value function in another exercise to determine the kind
+#of vector value function that is appropriate for realistic scenarios
+
+F = m* r.diff(t, 2) #result:(0, 0, 0)
+F
+F0 == F
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>verify this relation: <span><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>F</mi><mo>=</mo><msup><mi>F</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup></mrow><annotation encoding="application/x-tex">{F = F'}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.801892em; vertical-align: 0em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.13889em;">F</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height: 0.801892em;"><span class="" style="top: -3.113em; margin-right: 0.05em;"><span class="pstrut" style="height: 2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="119" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">F_prime = m*r_prime.diff(t, 2) #result:(0, 0, 0)
+F == F_prime
+</code></pre></div><div class="nb-output" data-prompt-number="119" style="display: none;"><pre class="nb-text-output">True</pre></div>
+  <div class="compute sagecell output_b5798afd37a243648e17b3219e0729a5" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">F_prime = m*r_prime.diff(t, 2) #result:(0, 0, 0)
+F == F_prime
+</script>
+  </div></div><div class="nb-cell nb-markdown-cell"><p>Plotting it: We construct the vector graphs to resemble Figure 2.3.1</p>
+<p>Suppose we want to look 2 seconds into the time
+so let tick = 2</p>
+</div><div class="nb-cell nb-markdown-cell"><p>now we construct the Vt vector from the perspective of the original frame
+by passing 5 seconds as parameter to the vector valued function to get a snap shot of the vectors
+in time, then define vectors by assigning 2 seconds to each of the vector value functions to get
+their snapshot in time to be plotted:</p>
+</div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="120" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">tick =1 #time unit
+#V
+Vt = Inertial_Frame_Position_Vector(t=tick)# this is equalvalent to V multiply with t in the formula
+Vt
+#firt time we made a mistake using V, but V = Inertial_Frame_Position_Vector.diff(t,1) is the velocity vector value 
+#it is not a function and so can not be evaluted at t,
+#however we can try calculating Vt in two ways:
+Vt2 = V*tick
+Vt == Vt2 #answer is true, so we could define Vt in two ways as shown
+
+rt = r(t=tick)
+rt
+r_primet = r_prime(t=tick)
+r_primet</code></pre></div><div class="nb-output" data-prompt-number="120" style="display: none;"><pre class="nb-text-output">(-1, -3, 1)</pre></div>
+  <div class="compute sagecell output_55c957cfdbfa47b9850bd9edf02aeb40" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">tick =1 #time unit
+#V
+Vt = Inertial_Frame_Position_Vector(t=tick)# this is equalvalent to V multiply with t in the formula
+Vt
+#firt time we made a mistake using V, but V = Inertial_Frame_Position_Vector.diff(t,1) is the velocity vector value 
+#it is not a function and so can not be evaluted at t,
+#however we can try calculating Vt in two ways:
+Vt2 = V*tick
+Vt == Vt2 #answer is true, so we could define Vt in two ways as shown
+
+rt = r(t=tick)
+rt
+r_primet = r_prime(t=tick)
+r_primet
+</script>
+  </div></div><div class="nb-cell nb-code-cell"><div class="nb-input" data-prompt-number="121" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage">#define base vectors for plotting the Transformation at time t
+e1_x = 1
+e1_y = 0
+e1_z = 0
+e1=vector(e1_x *[1,0,0] + e1_y *[0,1,0] + e1_z*[0,0,1])
+e2_x = 0
+e2_y = 1
+e2_z = 0
+e2=vector(e2_x * [1,0,0] + e2_y *[0,1,0] + e2_z *[0,0,1])
+e3_x = 0
+e3_y = 0
+e3_z = 1
+e3=vector(e3_x *[1,0,0] + e3_y *[0,1,0] + e3_z*[0,0,1])
+
+e1Plot=plot(e1, legend_lable='Base Vector e1', color='blue', thickness=2)
+e2Plot=plot(e2, legend_lable='Base Vector e2', color='blue', thickness=2)
+e3Plot=plot(e3, legend_lable='Base Vector e3', color='blue', thickness=2)
+
+#the transformed base vectors
+e1_prime_x =  e1_x 
+e1_prime_y = e1_y 
+e1_prime_z =  e1_z 
+e1_prime= vector(e1_prime_x *[1,0,0] + e1_prime_y *[0,1,0] + e1_prime_z*[0,0,1])
+#vector([e1_prime_x, e1_prime_y, e1_prime_z])
+e2_prime_x = e2_x 
+e2_prime_y = e2_y 
+e2_prime_z =  e2_z 
+e2_prime= vector(e2_prime_x * [1,0,0] + e2_prime_y *[0,1,0] + e2_prime_z *[0,0,1])
+#vector([e2_prime_x, e2_prime_y, e2_prime_z])
+e3_prime_x = e3_x 
+e3_prime_y = e3_y 
+e3_prime_z = e3_z
+e3_prime= vector(e3_prime_x *[1,0,0] + e3_prime_y *[0,1,0] + e3_prime_z*[0,0,1])
+#vector([e3_prime_x, e3_prime_y, e3_prime_z])
+Vt = Inertial_Frame_Position_Vector(t= tick)
+
+e1PrimePlot=plot(e1_prime, start= Vt, color='blue', thickness=2)
+e2PrimePlot=plot(e2_prime, start= Vt, color='blue', thickness=2)
+e3PrimePlot=plot(e3_prime, start= Vt, color='blue', thickness=2)
+
+
+VtPlot=plot(Vt,  legend_label='Vector Vt', color='green', thickness=5)
+rPrimePlot=plot(r_primet,start=Vt, legend_label='Vector r prime', color="red", thickness=5)
+rPlot=plot(rt, legend_label='Vector r ', color='yellow', thickness=5)
+AllPlot= e1Plot + e2Plot + e3Plot+ rPlot + VtPlot+ rPrimePlot + e1PrimePlot +e2PrimePlot + e3PrimePlot 
+AllPlot.show()
+
+</code></pre></div><div class="nb-output" data-prompt-number="121" style="display: none;"><div class="nb-html-output">
+<iframe srcdoc="<!DOCTYPE html>
+<html>
+<head>
+<title></title>
+<meta charset=&quot;utf-8&quot;>
+<meta name=viewport content=&quot;width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0&quot;>
+<style>
+
+    body { margin: 0px; overflow: hidden; }
+
+    #menu-container { position: absolute; bottom: 30px; right: 40px; cursor: default; }
+
+    #menu-message { position: absolute; bottom: 0px; right: 0px; white-space: nowrap;
+                    display: none; background-color: #F5F5F5; padding: 10px; }
+
+    #menu-content { position: absolute; bottom: 0px; right: 0px;
+                    display: none; background-color: #F5F5F5; border-bottom: 1px solid black;
+                    border-right: 1px solid black; border-left: 1px solid black; }
+
+    #menu-content div { border-top: 1px solid black; padding: 10px; white-space: nowrap; }
+
+    #menu-content div:hover { background-color: #FEFEFE; }
+
+    .dark-theme #menu-container { color: white; }
+
+    .dark-theme #menu-message { background-color: #181818; }
+
+    .dark-theme #menu-content { background-color: #181818; border-color: white; }
+
+    .dark-theme #menu-content div { border-color: white; }
+
+    .dark-theme #menu-content div:hover { background-color: #303030; }
+
+</style>
+
+</head>
+
+<body>
+
+<script src=&quot;/nbextensions/threejs-sage/r122/three.min.js&quot;></script>
+<script>
+  if ( !window.THREE ) document.write(' \
+<script src=&quot;https://cdn.jsdelivr.net/gh/sagemath/threejs-sage@r122/build/three.min.js&quot;><\/script> \
+            ');
+</script>
+        
+<script>
+
+    var options = {&quot;animate&quot;: false, &quot;animationControls&quot;: true, &quot;aspectRatio&quot;: [1.0, 1.0, 1.0], &quot;autoScaling&quot;: [false, false, false], &quot;autoPlay&quot;: true, &quot;axes&quot;: false, &quot;axesLabels&quot;: [&quot;x&quot;, &quot;y&quot;, &quot;z&quot;], &quot;axesLabelsStyle&quot;: null, &quot;decimals&quot;: 2, &quot;delay&quot;: 20, &quot;frame&quot;: true, &quot;loop&quot;: true, &quot;projection&quot;: &quot;perspective&quot;, &quot;theme&quot;: &quot;light&quot;, &quot;viewpoint&quot;: false};
+    var animate = options.animate;
+
+    if ( options.theme === 'dark' )
+        document.body.className = 'dark-theme';
+
+    var scene = new THREE.Scene();
+
+    var renderer = new THREE.WebGLRenderer( { antialias: true, preserveDrawingBuffer: true } );
+    renderer.setPixelRatio( window.devicePixelRatio );
+    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setClearColor( options.theme === 'dark' ? 0 : 0xffffff, 1 );
+    document.body.appendChild( renderer.domElement );
+
+    var b = [{&quot;x&quot;:0.0, &quot;y&quot;:0.0, &quot;z&quot;:0.0}, {&quot;x&quot;:4.0, &quot;y&quot;:5.0, &quot;z&quot;:3.0}]; // bounds
+
+    if ( b[0].x === b[1].x ) {
+        b[0].x -= 1;
+        b[1].x += 1;
+    }
+    if ( b[0].y === b[1].y ) {
+        b[0].y -= 1;
+        b[1].y += 1;
+    }
+    if ( b[0].z === b[1].z ) {
+        b[0].z -= 1;
+        b[1].z += 1;
+    }
+
+    var rxRange = Math.sqrt( Math.pow( b[1].z - b[0].z, 2 )
+                            + Math.pow( b[1].y - b[0].y, 2 ) );
+    var ryRange = Math.sqrt( Math.pow( b[1].x - b[0].x, 2 )
+                            + Math.pow( b[1].z - b[0].z, 2 ) );
+    var rzRange = Math.sqrt( Math.pow( b[1].x - b[0].x, 2 )
+                            + Math.pow( b[1].y - b[0].y, 2 ) );
+    var xRange = b[1].x - b[0].x;
+    var yRange = b[1].y - b[0].y;
+    var zRange = b[1].z - b[0].z;
+
+    var ar = options.aspectRatio;
+    var a = [ ar[0], ar[1], ar[2] ]; // aspect multipliers
+
+    var autoScaling = options.autoScaling;
+    var autoAspect = 2.5;
+    if ( xRange > autoAspect * rxRange &amp;&amp; autoScaling[0] ) a[0] = autoAspect * rxRange / xRange;
+    if ( yRange > autoAspect * ryRange &amp;&amp; autoScaling[1] ) a[1] = autoAspect * ryRange / yRange;
+    if ( zRange > autoAspect * rzRange &amp;&amp; autoScaling[2] ) a[2] = autoAspect * rzRange / zRange;
+
+    // Distance from (xMid,yMid,zMid) to any corner of the bounding box, after applying aspectRatio
+    var midToCorner = Math.sqrt( a[0]*a[0]*xRange*xRange + a[1]*a[1]*yRange*yRange + a[2]*a[2]*zRange*zRange ) / 2;
+
+    var xMid = ( b[0].x + b[1].x ) / 2;
+    var yMid = ( b[0].y + b[1].y ) / 2;
+    var zMid = ( b[0].z + b[1].z ) / 2;
+
+    var box = new THREE.Geometry();
+    box.vertices.push( new THREE.Vector3( a[0]*b[0].x, a[1]*b[0].y, a[2]*b[0].z ) );
+    box.vertices.push( new THREE.Vector3( a[0]*b[1].x, a[1]*b[1].y, a[2]*b[1].z ) );
+    var boxMesh = new THREE.Line( box );
+    var boxColor = options.theme === 'dark' ? 'white' : 'black';
+    if ( options.frame ) scene.add( new THREE.BoxHelper( boxMesh, boxColor ) );
+
+    if ( options.axesLabels ) {
+
+        var d = options.decimals; // decimals
+        var offsetRatio = 0.1;
+        var al = options.axesLabels;
+        var als = options.axesLabelsStyle || [{}, {}, {}];
+
+        var offset = offsetRatio * a[1]*( b[1].y - b[0].y );
+        var xm = xMid.toFixed(d);
+        if ( /^-0.?0*$/.test(xm) ) xm = xm.substr(1);
+        addLabel( al[0] + '=' + xm, a[0]*xMid, a[1]*b[1].y+offset, a[2]*b[0].z, als[0] );
+        addLabel( ( b[0].x ).toFixed(d), a[0]*b[0].x, a[1]*b[1].y+offset, a[2]*b[0].z, als[0] );
+        addLabel( ( b[1].x ).toFixed(d), a[0]*b[1].x, a[1]*b[1].y+offset, a[2]*b[0].z, als[0] );
+
+        var offset = offsetRatio * a[0]*( b[1].x - b[0].x );
+        var ym = yMid.toFixed(d);
+        if ( /^-0.?0*$/.test(ym) ) ym = ym.substr(1);
+        addLabel( al[1] + '=' + ym, a[0]*b[1].x+offset, a[1]*yMid, a[2]*b[0].z, als[1] );
+        addLabel( ( b[0].y ).toFixed(d), a[0]*b[1].x+offset, a[1]*b[0].y, a[2]*b[0].z, als[1] );
+        addLabel( ( b[1].y ).toFixed(d), a[0]*b[1].x+offset, a[1]*b[1].y, a[2]*b[0].z, als[1] );
+
+        var offset = offsetRatio * a[1]*( b[1].y - b[0].y );
+        var zm = zMid.toFixed(d);
+        if ( /^-0.?0*$/.test(zm) ) zm = zm.substr(1);
+        addLabel( al[2] + '=' + zm, a[0]*b[1].x, a[1]*b[0].y-offset, a[2]*zMid, als[2] );
+        addLabel( ( b[0].z ).toFixed(d), a[0]*b[1].x, a[1]*b[0].y-offset, a[2]*b[0].z, als[2] );
+        addLabel( ( b[1].z ).toFixed(d), a[0]*b[1].x, a[1]*b[0].y-offset, a[2]*b[1].z, als[2] );
+
+    }
+
+    function addLabel( text, x, y, z, style ) {
+
+        var color = style.color || 'black';
+        var fontSize = style.fontSize || 14;
+        var fontFamily = style.fontFamily || 'monospace';
+        var fontStyle = style.fontStyle || 'normal';
+        var fontWeight = style.fontWeight || 'normal';
+        var opacity = style.opacity || 1;
+
+        if ( options.theme === 'dark' )
+            if ( color === 'black' || color === '#000000' )
+                color = 'white';
+
+        if ( Array.isArray( fontStyle ) ) {
+            fontFamily = fontFamily.map( function( f ) {
+                // Need to put quotes around fonts that have whitespace in their names.
+                return /\s/.test( f ) ? '&quot;' + f + '&quot;' : f;
+            }).join(', ');
+        }
+
+        var canvas = document.createElement( 'canvas' );
+        var context = canvas.getContext( '2d' );
+        var pixelRatio = Math.round( window.devicePixelRatio );
+
+        // For example: italic bold 20px &quot;Times New Roman&quot;, Georgia, serif
+        var font = [fontStyle, fontWeight, fontSize + 'px', fontFamily].join(' ');
+
+        context.font = font;
+        var width = context.measureText( text ).width;
+        var height = fontSize;
+
+        // The dimensions of the canvas's underlying image data need to be powers
+        // of two in order for the resulting texture to support mipmapping.
+        canvas.width = THREE.MathUtils.ceilPowerOfTwo( width * pixelRatio );
+        canvas.height = THREE.MathUtils.ceilPowerOfTwo( height * pixelRatio );
+
+        // Re-compute the unscaled dimensions after the power of two conversion.
+        width = canvas.width / pixelRatio;
+        height = canvas.height / pixelRatio;
+
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+
+        context.scale( pixelRatio, pixelRatio );
+        context.fillStyle = color;
+        context.font = font; // Must be set again after measureText.
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText( text, width/2, height/2 );
+
+        var texture = new THREE.Texture( canvas );
+        texture.needsUpdate = true;
+
+        var materialOptions = { map: texture, sizeAttenuation: false, depthWrite: false };
+        if ( opacity < 1 ) {
+            // Setting opacity=1 would cause the texture's alpha component to be
+            // discarded, giving the text a black background instead of the
+            // background being transparent.
+            materialOptions.opacity = opacity;
+        }
+        var sprite = new THREE.Sprite( new THREE.SpriteMaterial( materialOptions ) );
+        sprite.position.set( x, y, z );
+
+        // Scaling factor, chosen somewhat arbitrarily so that the size of the text
+        // is consistent with previously generated plots.
+        var scale = 1/625;
+        if ( options.projection === 'orthographic' ) {
+            scale = midToCorner/256; // Needs to scale along with the plot itself.
+        }
+        sprite.scale.set( scale * width, scale * height, 1 );
+
+        scene.add( sprite );
+
+        return sprite;
+
+    }
+
+    if ( options.axes ) scene.add( new THREE.AxesHelper( Math.min( a[0]*b[1].x, a[1]*b[1].y, a[2]*b[1].z ) ) );
+
+    var camera = createCamera();
+    camera.up.set( 0, 0, 1 );
+    camera.position.set( a[0]*xMid, a[1]*yMid, a[2]*zMid );
+
+    var offset = new THREE.Vector3( a[0]*xRange, a[1]*yRange, a[2]*zRange );
+
+    if ( options.viewpoint ) {
+
+        var aa = options.viewpoint;
+        var axis = new THREE.Vector3( aa[0][0], aa[0][1], aa[0][2] ).normalize();
+        var angle = aa[1] * Math.PI / 180;
+        var q = new THREE.Quaternion().setFromAxisAngle( axis, angle ).inverse();
+
+        offset.set( 0, 0, offset.length() );
+        offset.applyQuaternion( q );
+
+    }
+
+    camera.position.add( offset );
+
+    function createCamera() {
+
+        var aspect = window.innerWidth / window.innerHeight;
+
+        // Scale the near and far clipping planes along with the overall plot size.
+        var nearClip = 0.01 * midToCorner;
+        var farClip = 100 * midToCorner;
+
+        if ( options.projection === 'orthographic' ) {
+            var camera = new THREE.OrthographicCamera( -1, 1, 1, -1, -farClip, farClip );
+            updateCameraAspect( camera, aspect );
+            return camera;
+        }
+
+        return new THREE.PerspectiveCamera( 45, aspect, nearClip, farClip );
+
+    }
+
+    function updateCameraAspect( camera, aspect ) {
+
+        if ( camera.isPerspectiveCamera ) {
+            camera.aspect = aspect;
+        } else if ( camera.isOrthographicCamera ) {
+            // Fit the camera frustum to the bounding box's diagonal so that the entire plot fits
+            // within at the default zoom level and camera position.
+            if ( aspect > 1 ) { // Wide window
+                camera.top = midToCorner;
+                camera.right = midToCorner * aspect;
+            } else { // Tall or square window
+                camera.top = midToCorner / aspect;
+                camera.right = midToCorner;
+            }
+            camera.bottom = -camera.top;
+            camera.left = -camera.right;
+        }
+
+        camera.updateProjectionMatrix();
+
+    }
+
+    var lights = [{&quot;x&quot;:-5, &quot;y&quot;:3, &quot;z&quot;:0, &quot;color&quot;:&quot;#7f7f7f&quot;, &quot;parent&quot;:&quot;camera&quot;}];
+    for ( var i=0 ; i < lights.length ; i++ ) {
+        var light = new THREE.DirectionalLight( lights[i].color, 1 );
+        light.position.set( a[0]*lights[i].x, a[1]*lights[i].y, a[2]*lights[i].z );
+        if ( lights[i].parent === 'camera' ) {
+            light.target.position.set( a[0]*xMid, a[1]*yMid, a[2]*zMid );
+            scene.add( light.target );
+            camera.add( light );
+        } else scene.add( light );
+    }
+    scene.add( camera );
+
+    var ambient = {&quot;color&quot;:&quot;#7f7f7f&quot;};
+    scene.add( new THREE.AmbientLight( ambient.color, 1 ) );
+
+    var controls = new THREE.OrbitControls( camera, renderer.domElement );
+    controls.target.set( a[0]*xMid, a[1]*yMid, a[2]*zMid );
+    controls.addEventListener( 'change', function() { if ( !animate ) render(); } );
+
+    window.addEventListener( 'resize', function() {
+
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        updateCameraAspect( camera, window.innerWidth / window.innerHeight );
+        if ( window.rescaleFatLines ) rescaleFatLines();
+        if ( !animate ) render();
+
+    } );
+
+    var texts = [];
+    for ( var i=0 ; i < texts.length ; i++ ) addText( texts[i] );
+
+    function addText( json ) {
+        var sprite = addLabel( json.text, a[0]*json.x, a[1]*json.y, a[2]*json.z, json );
+        sprite.userData = json;
+    }
+
+    var points = [];
+    for ( var i=0 ; i < points.length ; i++ ) addPoint( points[i] );
+
+    function addPoint( json ) {
+
+        var geometry = new THREE.Geometry();
+        var v = json.point;
+        geometry.vertices.push( new THREE.Vector3( a[0]*v[0], a[1]*v[1], a[2]*v[2] ) );
+
+        var canvas = document.createElement( 'canvas' );
+        canvas.width = 128;
+        canvas.height = 128;
+
+        var context = canvas.getContext( '2d' );
+        context.arc( 64, 64, 64, 0, 2 * Math.PI );
+        context.fillStyle = json.color;
+        context.fill();
+
+        var texture = new THREE.Texture( canvas );
+        texture.needsUpdate = true;
+
+        var transparent = json.opacity < 1 ? true : false;
+        var size = camera.isOrthographicCamera ? json.size : json.size/100;
+        var material = new THREE.PointsMaterial( { size: size, map: texture,
+                                                   transparent: transparent, opacity: json.opacity,
+                                                   alphaTest: .1 } );
+
+        var c = new THREE.Vector3();
+        geometry.computeBoundingBox();
+        geometry.boundingBox.getCenter( c );
+        geometry.translate( -c.x, -c.y, -c.z );
+
+        var mesh = new THREE.Points( geometry, material );
+        mesh.position.set( c.x, c.y, c.z );
+        mesh.userData = json;
+        scene.add( mesh );
+
+    }
+
+    var lines = [];
+    for ( var i=0 ; i < lines.length ; i++ ) addLine( lines[i] );
+
+    function addLine( json ) {
+
+        var geometry = new THREE.Geometry();
+        for ( var i=0 ; i < json.points.length ; i++ ) {
+            var v = json.points[i];
+            geometry.vertices.push( new THREE.Vector3( a[0]*v[0], a[1]*v[1], a[2]*v[2] ) );
+        }
+
+        var c = new THREE.Vector3();
+        geometry.computeBoundingBox();
+        geometry.boundingBox.getCenter( c );
+        geometry.translate( -c.x, -c.y, -c.z );
+
+        var transparent = json.opacity < 1 ? true : false;
+        var materialOptions = { color: json.color, linewidth: json.linewidth,
+                                transparent: transparent, opacity: json.opacity };
+
+        var mesh;
+        if ( json.linewidth > 1 &amp;&amp; window.createFatLineStrip ) {
+            mesh = createFatLineStrip( geometry, materialOptions );
+        } else {
+            var material = new THREE.LineBasicMaterial( materialOptions );
+            mesh = new THREE.Line( geometry, material );
+        }
+
+        mesh.position.set( c.x, c.y, c.z );
+        mesh.userData = json;
+        scene.add( mesh );
+
+    }
+
+    var surfaces = [{&quot;vertices&quot;: [{&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.0, &quot;z&quot;: 5.021051876504149e-17}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.006180339887498949, &quot;z&quot;: -0.019021130325903024}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.02, &quot;z&quot;: 5.021051876504149e-17}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: -0.016180339887498948, &quot;z&quot;: -0.011755705045849415}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: -0.01618033988749895, &quot;z&quot;: 0.011755705045849512}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.006180339887498945, &quot;z&quot;: 0.01902113032590312}, {&quot;x&quot;: 1.1647083184890924e-18, &quot;y&quot;: 0.006180339887498949, &quot;z&quot;: -0.019021130325903073}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.02, &quot;z&quot;: 0.0}, {&quot;x&quot;: 7.198293278059968e-19, &quot;y&quot;: -0.016180339887498948, &quot;z&quot;: -0.011755705045849465}, {&quot;x&quot;: -7.198293278059966e-19, &quot;y&quot;: -0.01618033988749895, &quot;z&quot;: 0.011755705045849461}, {&quot;x&quot;: -1.1647083184890924e-18, &quot;y&quot;: 0.006180339887498945, &quot;z&quot;: 0.019021130325903073}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 0.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 1.0, &quot;y&quot;: 0.0, &quot;z&quot;: 6.123233995736767e-17}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.018541019662496848, &quot;z&quot;: -0.05706339097770916}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.06, &quot;z&quot;: 5.021051876504149e-17}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: -0.04854101966249684, &quot;z&quot;: -0.03526711513754834}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: -0.048541019662496854, &quot;z&quot;: 0.035267115137548426}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.018541019662496834, &quot;z&quot;: 0.057063390977709266}, {&quot;x&quot;: 0.8200000000000001, &quot;y&quot;: 0.0, &quot;z&quot;: 5.021051876504149e-17}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6], [1, 3, 6], [3, 4, 6], [4, 5, 6], [5, 2, 6]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 0.0, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: 5.021051876504149e-17}, {&quot;x&quot;: 0.019021130325903073, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: -0.006180339887498899}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: -0.019999999999999952}, {&quot;x&quot;: 0.011755705045849465, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: 0.016180339887498996}, {&quot;x&quot;: -0.011755705045849461, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: 0.016180339887499}, {&quot;x&quot;: -0.019021130325903073, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: -0.006180339887498895}, {&quot;x&quot;: 0.019021130325903073, &quot;y&quot;: 3.7843667304341507e-19, &quot;z&quot;: -0.006180339887498949}, {&quot;x&quot;: 0.0, &quot;y&quot;: 1.2246467991473532e-18, &quot;z&quot;: -0.02}, {&quot;x&quot;: 0.011755705045849465, &quot;y&quot;: -9.907600726170915e-19, &quot;z&quot;: 0.016180339887498948}, {&quot;x&quot;: -0.011755705045849461, &quot;y&quot;: -9.907600726170917e-19, &quot;z&quot;: 0.01618033988749895}, {&quot;x&quot;: -0.019021130325903073, &quot;y&quot;: 3.784366730434148e-19, &quot;z&quot;: -0.006180339887498945}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 0.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 0.0, &quot;y&quot;: 1.0, &quot;z&quot;: 6.123233995736767e-17}, {&quot;x&quot;: 0.05706339097770921, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: -0.0185410196624968}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: -0.05999999999999995}, {&quot;x&quot;: 0.03526711513754839, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: 0.04854101966249689}, {&quot;x&quot;: -0.03526711513754838, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: 0.0485410196624969}, {&quot;x&quot;: -0.05706339097770922, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: -0.018541019662496785}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.8200000000000001, &quot;z&quot;: 5.021051876504149e-17}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6], [1, 3, 6], [3, 4, 6], [4, 5, 6], [5, 2, 6]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: 0.019021130325903073, &quot;y&quot;: 0.006180339887498949, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.02, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: 0.011755705045849465, &quot;y&quot;: -0.016180339887498948, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: -0.011755705045849461, &quot;y&quot;: -0.01618033988749895, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: -0.019021130325903073, &quot;y&quot;: 0.006180339887498945, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: 0.019021130325903073, &quot;y&quot;: 0.006180339887498949, &quot;z&quot;: 0.0}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.02, &quot;z&quot;: 0.0}, {&quot;x&quot;: 0.011755705045849465, &quot;y&quot;: -0.016180339887498948, &quot;z&quot;: 0.0}, {&quot;x&quot;: -0.011755705045849461, &quot;y&quot;: -0.01618033988749895, &quot;z&quot;: 0.0}, {&quot;x&quot;: -0.019021130325903073, &quot;y&quot;: 0.006180339887498945, &quot;z&quot;: 0.0}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 0.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 1.0}, {&quot;x&quot;: 0.05706339097770921, &quot;y&quot;: 0.018541019662496848, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.06, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: 0.03526711513754839, &quot;y&quot;: -0.04854101966249684, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: -0.03526711513754838, &quot;y&quot;: -0.048541019662496854, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: -0.05706339097770922, &quot;y&quot;: 0.018541019662496834, &quot;z&quot;: 0.8200000000000001}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 0.8200000000000001}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6], [1, 3, 6], [3, 4, 6], [4, 5, 6], [5, 2, 6]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 1.7594648822788177, &quot;y&quot;: 0.8797324411394088, &quot;z&quot;: 2.639197323418227}, {&quot;x&quot;: 1.7982520689764654, &quot;y&quot;: 0.8908004712996013, &quot;z&quot;: 2.609649855566398}, {&quot;x&quot;: 1.755500556793563, &quot;y&quot;: 0.9277502783967816, &quot;z&quot;: 2.625834261322606}, {&quot;x&quot;: 1.7874010074712063, &quot;y&quot;: 0.838555022709544, &quot;z&quot;: 2.634299046099923}, {&quot;x&quot;: 1.7379431704640382, &quot;y&quot;: 0.8432153668205836, &quot;z&quot;: 2.665717489401022}, {&quot;x&quot;: 1.7182276076888152, &quot;y&quot;: 0.8983410664705338, &quot;z&quot;: 2.660485964701187}, {&quot;x&quot;: 0.038787186697647774, &quot;y&quot;: 0.011068030160192418, &quot;z&quot;: -0.029547467851829313}, {&quot;x&quot;: -0.003964325485254536, &quot;y&quot;: 0.048017837257372735, &quot;z&quot;: -0.013363062095621218}, {&quot;x&quot;: 0.027936125192388656, &quot;y&quot;: -0.04117741842986487, &quot;z&quot;: -0.004898277318304145}, {&quot;x&quot;: -0.02152171181477939, &quot;y&quot;: -0.03651707431882525, &quot;z&quot;: 0.026520165982794667}, {&quot;x&quot;: -0.041237274590002496, &quot;y&quot;: 0.018608625331124957, &quot;z&quot;: 0.02128864128296001}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 0.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#ffff00&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 1.9999999999999996, &quot;y&quot;: 0.9999999999999998, &quot;z&quot;: 3.0}, {&quot;x&quot;: 1.8122722860857525, &quot;y&quot;: 0.9985399536105422, &quot;z&quot;: 2.5643898833898926}, {&quot;x&quot;: 1.747571905823054, &quot;y&quot;: 1.0237859529115272, &quot;z&quot;: 2.5991081371313633}, {&quot;x&quot;: 1.8628229651439987, &quot;y&quot;: 0.9414595772881664, &quot;z&quot;: 2.549716222791854}, {&quot;x&quot;: 1.8856789293672904, &quot;y&quot;: 0.8678394646836453, &quot;z&quot;: 2.5590189508444996}, {&quot;x&quot;: 1.8747159415997623, &quot;y&quot;: 0.7974060655160482, &quot;z&quot;: 2.5898054090787177}, {&quot;x&quot;: 1.8328715255603556, &quot;y&quot;: 0.749031952212512, &quot;z&quot;: 2.633826390872834}, {&quot;x&quot;: 1.7713578587345813, &quot;y&quot;: 0.7356789293672906, &quot;z&quot;: 2.679286509705091}, {&quot;x&quot;: 1.7066574784718829, &quot;y&quot;: 0.7609249286682755, &quot;z&quot;: 2.7140047634465616}, {&quot;x&quot;: 1.6561067994136367, &quot;y&quot;: 0.8180053049906512, &quot;z&quot;: 2.7286784240446003}, {&quot;x&quot;: 1.633250835190345, &quot;y&quot;: 0.8916254175951724, &quot;z&quot;: 2.7193756959919546}, {&quot;x&quot;: 1.644213822957873, &quot;y&quot;: 0.9620588167627695, &quot;z&quot;: 2.6885892377577365}, {&quot;x&quot;: 1.6860582389972798, &quot;y&quot;: 1.0104329300663057, &quot;z&quot;: 2.64456825596362}, {&quot;x&quot;: 1.7594648822788177, &quot;y&quot;: 0.8797324411394088, &quot;z&quot;: 2.639197323418227}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 6, 5], [0, 7, 6], [0, 8, 7], [0, 9, 8], [0, 10, 9], [0, 11, 10], [0, 12, 11], [0, 2, 12], [2, 1, 13], [1, 3, 13], [3, 4, 13], [4, 5, 13], [5, 6, 13], [6, 7, 13], [7, 8, 13], [8, 9, 13], [9, 10, 13], [10, 11, 13], [11, 12, 13], [12, 2, 13]], &quot;color&quot;: &quot;#ffff00&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 2.7493112934609796, &quot;y&quot;: 3.6657483912813063, &quot;z&quot;: 1.8328741956406533}, {&quot;x&quot;: 2.7814409222616066, &quot;y&quot;: 3.660634978314546, &quot;z&quot;: 1.7949065783732334}, {&quot;x&quot;: 2.734224669693478, &quot;y&quot;: 3.6956328929246376, &quot;z&quot;: 1.795735128005243}, {&quot;x&quot;: 2.784255119873186, &quot;y&quot;: 3.632703626626003, &quot;z&quot;: 1.8465479853329507}, {&quot;x&quot;: 2.7387781370800726, &quot;y&quot;: 3.650439016540848, &quot;z&quot;: 1.8792926796929312}, {&quot;x&quot;: 2.7078576183965546, &quot;y&quot;: 3.6893314420004972, &quot;z&quot;: 1.8478886067989087}, {&quot;x&quot;: 0.032129628800626975, &quot;y&quot;: -0.00511341296676023, &quot;z&quot;: -0.037967617267420005}, {&quot;x&quot;: -0.015086623767501512, &quot;y&quot;: 0.02988450164333132, &quot;z&quot;: -0.037139067635410375}, {&quot;x&quot;: 0.03494382641220651, &quot;y&quot;: -0.03304476465530358, &quot;z&quot;: 0.013673789692297399}, {&quot;x&quot;: -0.010533156380907063, &quot;y&quot;: -0.01530937474045859, &quot;z&quot;: 0.046418484052277775}, {&quot;x&quot;: -0.041453675064424905, &quot;y&quot;: 0.02358305071919107, &quot;z&quot;: 0.015014411158255216}, {&quot;x&quot;: 0.0, &quot;y&quot;: 0.0, &quot;z&quot;: 0.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#008000&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 2.9999999999999996, &quot;y&quot;: 3.9999999999999996, &quot;z&quot;: 2.0}, {&quot;x&quot;: 2.768142643402557, &quot;y&quot;: 3.7207606684377423, &quot;z&quot;: 1.694602616415415}, {&quot;x&quot;: 2.704051422158475, &quot;y&quot;: 3.7554018962113003, &quot;z&quot;: 1.721456992734422}, {&quot;x&quot;: 2.8271880196374055, &quot;y&quot;: 3.67137894542632, &quot;z&quot;: 1.7047979980859866}, {&quot;x&quot;: 2.8653663899841013, &quot;y&quot;: 3.6204885199788017, &quot;z&quot;: 1.74931129346098}, {&quot;x&quot;: 2.87244789093991, &quot;y&quot;: 3.581725440496326, &quot;z&quot;: 1.8162152009922177}, {&quot;x&quot;: 2.846535040042524, &quot;y&quot;: 3.5654762428223656, &quot;z&quot;: 1.8875828726862183}, {&quot;x&quot;: 2.794571164763484, &quot;y&quot;: 3.5760948863513122, &quot;z&quot;: 1.9442913985468844}, {&quot;x&quot;: 2.730479943519402, &quot;y&quot;: 3.61073611412487, &quot;z&quot;: 1.9711457748658916}, {&quot;x&quot;: 2.6714345672845536, &quot;y&quot;: 3.6601178371362924, &quot;z&quot;: 1.96095039319532}, {&quot;x&quot;: 2.633256196937858, &quot;y&quot;: 3.711008262583811, &quot;z&quot;: 1.9164370978203267}, {&quot;x&quot;: 2.626174695982049, &quot;y&quot;: 3.7497713420662864, &quot;z&quot;: 1.849533190289089}, {&quot;x&quot;: 2.6520875468794354, &quot;y&quot;: 3.766020539740247, &quot;z&quot;: 1.7781655185950886}, {&quot;x&quot;: 2.7493112934609796, &quot;y&quot;: 3.6657483912813063, &quot;z&quot;: 1.8328741956406533}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 6, 5], [0, 7, 6], [0, 8, 7], [0, 9, 8], [0, 10, 9], [0, 11, 10], [0, 12, 11], [0, 2, 12], [2, 1, 13], [1, 3, 13], [3, 4, 13], [4, 5, 13], [5, 6, 13], [6, 7, 13], [7, 8, 13], [8, 9, 13], [9, 10, 13], [10, 11, 13], [11, 12, 13], [12, 2, 13]], &quot;color&quot;: &quot;#008000&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 2.135680105059994, &quot;y&quot;: 1.407040315179981, &quot;z&quot;: 2.864319894940006}, {&quot;x&quot;: 2.1766737469647097, &quot;y&quot;: 1.402813613168604, &quot;z&quot;: 2.8926334308105917}, {&quot;x&quot;: 2.12520277522866, &quot;y&quot;: 1.4256083256859804, &quot;z&quot;: 2.909546596626671}, {&quot;x&quot;: 2.171492898911084, &quot;y&quot;: 1.3858600591706334, &quot;z&quot;: 2.8365919207630528}, {&quot;x&quot;: 2.1168199869873443, &quot;y&quot;: 1.398176899087157, &quot;z&quot;: 2.8188695285888845}, {&quot;x&quot;: 2.08821111720817, &quot;y&quot;: 1.422742678787531, &quot;z&quot;: 2.863957997910832}, {&quot;x&quot;: 3.0409936419047163, &quot;y&quot;: 3.995773297988623, &quot;z&quot;: 2.028313535870585}, {&quot;x&quot;: 2.9895226701686664, &quot;y&quot;: 4.018568010506, &quot;z&quot;: 2.0452267016866648}, {&quot;x&quot;: 3.03581279385109, &quot;y&quot;: 3.9788197439906523, &quot;z&quot;: 1.9722720258230464}, {&quot;x&quot;: 2.981139881927351, &quot;y&quot;: 3.991136583907176, &quot;z&quot;: 1.9545496336488781}, {&quot;x&quot;: 2.9525310121481763, &quot;y&quot;: 4.0157023636075495, &quot;z&quot;: 1.9996381029708257}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 2.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#ff0000&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 2.0, &quot;y&quot;: 1.0, &quot;z&quot;: 3.0}, {&quot;x&quot;: 2.1782205387510367, &quot;y&quot;: 1.439565426820776, &quot;z&quot;: 3.0044356635534344}, {&quot;x&quot;: 2.1042481155659933, &quot;y&quot;: 1.4627443466979793, &quot;z&quot;: 3.0}, {&quot;x&quot;: 2.240794287082896, &quot;y&quot;: 1.40767142954569, &quot;z&quot;: 2.971327420060035}, {&quot;x&quot;: 2.27520277522866, &quot;y&quot;: 1.3756083256859803, &quot;z&quot;: 2.909546596626671}, {&quot;x&quot;: 2.2722262765768964, &quot;y&quot;: 1.3519673980276918, &quot;z&quot;: 2.8356473150000414}, {&quot;x&quot;: 2.2326623415376172, &quot;y&quot;: 1.3430832140451854, &quot;z&quot;: 2.7694308280132423}, {&quot;x&quot;: 2.1671120945539943, &quot;y&quot;: 1.3513362836619829, &quot;z&quot;: 2.7286397898800123}, {&quot;x&quot;: 2.093139671368951, &quot;y&quot;: 1.3745152035391859, &quot;z&quot;: 2.724204126326578}, {&quot;x&quot;: 2.030565923037092, &quot;y&quot;: 1.4064092008142721, &quot;z&quot;: 2.757312369819977}, {&quot;x&quot;: 1.9961574348913274, &quot;y&quot;: 1.4384723046739818, &quot;z&quot;: 2.8190931932533414}, {&quot;x&quot;: 1.999133933543091, &quot;y&quot;: 1.4621132323322703, &quot;z&quot;: 2.892992474879971}, {&quot;x&quot;: 2.0386978685823705, &quot;y&quot;: 1.4709974163147768, &quot;z&quot;: 2.95920896186677}, {&quot;x&quot;: 2.135680105059994, &quot;y&quot;: 1.407040315179981, &quot;z&quot;: 2.864319894940006}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 6, 5], [0, 7, 6], [0, 8, 7], [0, 9, 8], [0, 10, 9], [0, 11, 10], [0, 12, 11], [0, 2, 12], [2, 1, 13], [1, 3, 13], [3, 4, 13], [4, 5, 13], [5, 6, 13], [6, 7, 13], [7, 8, 13], [8, 9, 13], [9, 10, 13], [10, 11, 13], [11, 12, 13], [12, 2, 13]], &quot;color&quot;: &quot;#ff0000&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.0, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 1.980978869674097}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.02, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 1.9882442949541506}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 2.0117557050458497}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 2.019021130325903}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 1.9809788696740969}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.02, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.0, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 1.9882442949541506}, {&quot;x&quot;: 3.0, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 2.0117557050458497}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 2.019021130325903}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 2.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 4.0, &quot;y&quot;: 4.0, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.018541019662496, &quot;z&quot;: 1.9429366090222908}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.06, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 3.9514589803375033, &quot;z&quot;: 1.9647328848624517}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 3.9514589803375033, &quot;z&quot;: 2.0352671151375485}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.018541019662496, &quot;z&quot;: 2.057063390977709}, {&quot;x&quot;: 3.8200000000000003, &quot;y&quot;: 4.0, &quot;z&quot;: 2.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6], [1, 3, 6], [3, 4, 6], [4, 5, 6], [5, 2, 6]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 3.0, &quot;y&quot;: 4.82, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.019021130325903, &quot;y&quot;: 4.82, &quot;z&quot;: 1.9938196601125011}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.82, &quot;z&quot;: 1.98}, {&quot;x&quot;: 3.0117557050458497, &quot;y&quot;: 4.82, &quot;z&quot;: 2.016180339887499}, {&quot;x&quot;: 2.9882442949541503, &quot;y&quot;: 4.82, &quot;z&quot;: 2.016180339887499}, {&quot;x&quot;: 2.980978869674097, &quot;y&quot;: 4.82, &quot;z&quot;: 1.9938196601125011}, {&quot;x&quot;: 3.019021130325903, &quot;y&quot;: 4.0, &quot;z&quot;: 1.9938196601125011}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 1.98}, {&quot;x&quot;: 3.0117557050458497, &quot;y&quot;: 4.0, &quot;z&quot;: 2.016180339887499}, {&quot;x&quot;: 2.9882442949541503, &quot;y&quot;: 4.0, &quot;z&quot;: 2.016180339887499}, {&quot;x&quot;: 2.980978869674097, &quot;y&quot;: 4.0, &quot;z&quot;: 1.9938196601125011}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 2.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 3.0, &quot;y&quot;: 5.0, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.057063390977709, &quot;y&quot;: 4.82, &quot;z&quot;: 1.9814589803375031}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.82, &quot;z&quot;: 1.94}, {&quot;x&quot;: 3.0352671151375485, &quot;y&quot;: 4.82, &quot;z&quot;: 2.0485410196624967}, {&quot;x&quot;: 2.9647328848624515, &quot;y&quot;: 4.82, &quot;z&quot;: 2.0485410196624967}, {&quot;x&quot;: 2.942936609022291, &quot;y&quot;: 4.82, &quot;z&quot;: 1.9814589803375031}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.82, &quot;z&quot;: 2.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6], [1, 3, 6], [3, 4, 6], [4, 5, 6], [5, 2, 6]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 3.019021130325903, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.02, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 3.0117557050458497, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 2.9882442949541503, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 2.980978869674097, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 3.019021130325903, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.02, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.0117557050458497, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 2.0}, {&quot;x&quot;: 2.9882442949541503, &quot;y&quot;: 3.983819660112501, &quot;z&quot;: 2.0}, {&quot;x&quot;: 2.980978869674097, &quot;y&quot;: 4.006180339887499, &quot;z&quot;: 2.0}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 2.0}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6, 7], [1, 3, 8, 6], [3, 4, 9, 8], [4, 5, 10, 9], [5, 2, 7, 10], [7, 6, 11], [6, 8, 11], [8, 9, 11], [9, 10, 11], [10, 7, 11]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}, {&quot;vertices&quot;: [{&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 3.0000000000000004}, {&quot;x&quot;: 3.057063390977709, &quot;y&quot;: 4.018541019662496, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.06, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 3.0352671151375485, &quot;y&quot;: 3.9514589803375033, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 2.9647328848624515, &quot;y&quot;: 3.9514589803375033, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 2.942936609022291, &quot;y&quot;: 4.018541019662496, &quot;z&quot;: 2.8200000000000003}, {&quot;x&quot;: 3.0, &quot;y&quot;: 4.0, &quot;z&quot;: 2.8200000000000003}], &quot;faces&quot;: [[0, 1, 2], [0, 3, 1], [0, 4, 3], [0, 5, 4], [0, 2, 5], [2, 1, 6], [1, 3, 6], [3, 4, 6], [4, 5, 6], [5, 2, 6]], &quot;color&quot;: &quot;#0000ff&quot;, &quot;opacity&quot;: 1.0}];
+    for ( var i=0 ; i < surfaces.length ; i++ ) addSurface( surfaces[i] );
+
+    function addSurface( json ) {
+
+        var useFaceColors = 'faceColors' in json ? true : false;
+
+        var geometry = new THREE.Geometry();
+        for ( var i=0 ; i < json.vertices.length ; i++ ) {
+            var v = json.vertices[i];
+            geometry.vertices.push( new THREE.Vector3( a[0]*v.x, a[1]*v.y, a[2]*v.z ) );
+        }
+        for ( var i=0 ; i < json.faces.length ; i++ ) {
+            var f = json.faces[i];
+            for ( var j=0 ; j < f.length - 2 ; j++ ) {
+                var face = new THREE.Face3( f[0], f[j+1], f[j+2] );
+                if ( useFaceColors ) face.color.set( json.faceColors[i] );
+                geometry.faces.push( face );
+            }
+        }
+        geometry.computeVertexNormals();
+
+        var side = json.singleSide ? THREE.FrontSide : THREE.DoubleSide;
+        var transparent = json.opacity < 1 ? true : false;
+        var depthWrite = 'depthWrite' in json ? json.depthWrite : !transparent;
+        var flatShading = json.useFlatShading ? json.useFlatShading : false;
+
+        var material = new THREE.MeshPhongMaterial( { side: side,
+                                     color: useFaceColors ? 'white' : json.color,
+                                     vertexColors: useFaceColors ? THREE.FaceColors : THREE.NoColors,
+                                     transparent: transparent, opacity: json.opacity,
+                                     shininess: 20, flatShading: flatShading,
+                                     depthWrite: depthWrite } );
+
+        var c = new THREE.Vector3();
+        geometry.computeBoundingBox();
+        geometry.boundingBox.getCenter( c );
+        geometry.translate( -c.x, -c.y, -c.z );
+
+        var mesh = new THREE.Mesh( geometry, material );
+        mesh.position.set( c.x, c.y, c.z );
+        if ( transparent &amp;&amp; json.renderOrder ) mesh.renderOrder = json.renderOrder;
+        mesh.userData = json;
+        scene.add( mesh );
+
+        if ( json.showMeshGrid ) addSurfaceMeshGrid( json );
+
+    }
+
+    function addSurfaceMeshGrid( json ) {
+
+        var geometry = new THREE.Geometry();
+
+        for ( var i=0 ; i < json.faces.length ; i++ ) {
+            var f = json.faces[i];
+            for ( var j=0 ; j < f.length ; j++ ) {
+                var k = j === f.length-1 ? 0 : j+1;
+                var v1 = json.vertices[f[j]];
+                var v2 = json.vertices[f[k]];
+                // vertices in opposite directions on neighboring faces
+                var nudge = f[j] < f[k] ? .0005*zRange : -.0005*zRange;
+                geometry.vertices.push( new THREE.Vector3( a[0]*v1.x, a[1]*v1.y, a[2]*(v1.z+nudge) ) );
+                geometry.vertices.push( new THREE.Vector3( a[0]*v2.x, a[1]*v2.y, a[2]*(v2.z+nudge) ) );
+            }
+        }
+
+        var c = new THREE.Vector3();
+        geometry.computeBoundingBox();
+        geometry.boundingBox.getCenter( c );
+        geometry.translate( -c.x, -c.y, -c.z );
+
+        var gridColor = options.theme === 'dark' ? 'white' : 'black';
+        var linewidth = json.linewidth || 1;
+        var materialOptions = { color: gridColor, linewidth: linewidth };
+
+        var mesh;
+        if ( linewidth > 1 &amp;&amp; window.createFatLineSegments ) {
+            mesh = createFatLineSegments( geometry, materialOptions );
+        } else {
+            var material = new THREE.LineBasicMaterial( materialOptions );
+            mesh = new THREE.LineSegments( geometry, material );
+        }
+
+        mesh.position.set( c.x, c.y, c.z );
+        mesh.userData = json;
+        scene.add( mesh );
+
+    }
+
+    function render() {
+
+        if ( window.updateAnimation ) animate = updateAnimation();
+        if ( animate ) requestAnimationFrame( render );
+
+        renderer.render( scene, camera );
+
+    }
+
+    render();
+    controls.update();
+    if ( !animate ) render();
+
+
+    // menu functions
+
+    function toggleMenu() {
+
+        var m = document.getElementById( 'menu-content' );
+        if ( m.style.display === 'block' ) m.style.display = 'none'
+        else m.style.display = 'block';
+
+    }
+
+
+    function saveAsPNG() {
+
+        var a = document.body.appendChild( document.createElement( 'a' ) );
+        a.href = renderer.domElement.toDataURL( 'image/png' );
+        a.download = 'screenshot';
+        a.click();
+
+    }
+
+    function saveAsHTML() {
+
+        toggleMenu(); // otherwise visible in output
+        event.stopPropagation();
+
+        var blob = new Blob( [ '<!DOCTYPE html>\n' + document.documentElement.outerHTML ] );
+        var a = document.body.appendChild( document.createElement( 'a' ) );
+        a.href = window.URL.createObjectURL( blob );
+        a.download = suggestFilename();
+        a.click();
+
+        function suggestFilename() {
+            if ( !document.title ) {
+                return 'graphic.html';
+            } else if ( /\.html?$/i.test( document.title ) ) {
+                return document.title; // already ends in .htm or .html
+            } else {
+                return document.title + '.html';
+            }
+        }
+
+    }
+
+    function getViewpoint() {
+
+        function roundTo( x, n ) { return +x.toFixed(n); }
+
+        var v = camera.quaternion.inverse();
+        var r = Math.sqrt( v.x*v.x + v.y*v.y + v.z*v.z );
+        var axis = [ roundTo( v.x / r, 4 ), roundTo( v.y / r, 4 ), roundTo( v.z / r, 4 ) ];
+        var angle = roundTo( 2 * Math.atan2( r, v.w ) * 180 / Math.PI, 2 );
+
+        var textArea = document.createElement( 'textarea' );
+        textArea.textContent = JSON.stringify( axis ) + ',' + angle;
+        textArea.style.csstext = 'position: absolute; top: -100%';
+        document.body.append( textArea );
+        textArea.select();
+        document.execCommand( 'copy' );
+
+        var m = document.getElementById( 'menu-message' );
+        m.innerHTML = 'Viewpoint copied to clipboard';
+        m.style.display = 'block';
+        setTimeout( function() { m.style.display = 'none'; }, 2000 );
+
+    }
+
+    function getCamera() {
+
+        function roundTo( x, n ) { return +x.toFixed(n); }
+
+        var pos = camera.position;
+        var pos_r = [ roundTo( pos.x, 4 ), roundTo( pos.y, 4 ), roundTo( pos.z, 4 ) ];
+   //     var up = camera.up; // up is always (0,0,1)
+        var textArea = document.createElement('textarea');
+        var cam_position = JSON.stringify(pos_r);
+        textArea.textContent = ',camera_position=' + cam_position;
+        textArea.style.csstext = 'position: absolute; top: -100%';
+        document.body.append( textArea );
+        textArea.select();
+        document.execCommand( 'copy' );
+
+        var m = document.getElementById( 'menu-message' );
+        m.innerHTML = 'Camera position '+ cam_position+' copied to clipboard';
+        m.style.display = 'block';
+        setTimeout( function() { m.style.display = 'none'; }, 2000 );
+
+    }
+                                       
+</script>
+
+<div id=&quot;menu-container&quot; onclick=&quot;toggleMenu()&quot;>ⓘ
+<div id=&quot;menu-message&quot;></div>
+<div id=&quot;menu-content&quot;>
+<div onclick=&quot;saveAsPNG()&quot;>Save as PNG</div>
+<div onclick=&quot;saveAsHTML()&quot;>Save as HTML</div>
+<div onclick=&quot;getCamera()&quot;>Get camera</div>
+<div onclick=&quot;getViewpoint()&quot;>Get viewpoint</div>
+<div>Close Menu</div>
+</div></div>
+
+
+</body>
+</html>
+" width="100%" height="400" style="border: 0;">
+</iframe>
+</div></div>
+  <div class="compute sagecell output_b87d5c12cbaf4cd6872de03baca4b217" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">#define base vectors for plotting the Transformation at time t
+e1_x = 1
+e1_y = 0
+e1_z = 0
+e1=vector(e1_x *[1,0,0] + e1_y *[0,1,0] + e1_z*[0,0,1])
+e2_x = 0
+e2_y = 1
+e2_z = 0
+e2=vector(e2_x * [1,0,0] + e2_y *[0,1,0] + e2_z *[0,0,1])
+e3_x = 0
+e3_y = 0
+e3_z = 1
+e3=vector(e3_x *[1,0,0] + e3_y *[0,1,0] + e3_z*[0,0,1])
+
+e1Plot=plot(e1, legend_lable='Base Vector e1', color='blue', thickness=2)
+e2Plot=plot(e2, legend_lable='Base Vector e2', color='blue', thickness=2)
+e3Plot=plot(e3, legend_lable='Base Vector e3', color='blue', thickness=2)
+
+#the transformed base vectors
+e1_prime_x =  e1_x 
+e1_prime_y = e1_y 
+e1_prime_z =  e1_z 
+e1_prime= vector(e1_prime_x *[1,0,0] + e1_prime_y *[0,1,0] + e1_prime_z*[0,0,1])
+#vector([e1_prime_x, e1_prime_y, e1_prime_z])
+e2_prime_x = e2_x 
+e2_prime_y = e2_y 
+e2_prime_z =  e2_z 
+e2_prime= vector(e2_prime_x * [1,0,0] + e2_prime_y *[0,1,0] + e2_prime_z *[0,0,1])
+#vector([e2_prime_x, e2_prime_y, e2_prime_z])
+e3_prime_x = e3_x 
+e3_prime_y = e3_y 
+e3_prime_z = e3_z
+e3_prime= vector(e3_prime_x *[1,0,0] + e3_prime_y *[0,1,0] + e3_prime_z*[0,0,1])
+#vector([e3_prime_x, e3_prime_y, e3_prime_z])
+Vt = Inertial_Frame_Position_Vector(t= tick)
+
+e1PrimePlot=plot(e1_prime, start= Vt, color='blue', thickness=2)
+e2PrimePlot=plot(e2_prime, start= Vt, color='blue', thickness=2)
+e3PrimePlot=plot(e3_prime, start= Vt, color='blue', thickness=2)
+
+
+VtPlot=plot(Vt,  legend_label='Vector Vt', color='green', thickness=5)
+rPrimePlot=plot(r_primet,start=Vt, legend_label='Vector r prime', color="red", thickness=5)
+rPlot=plot(rt, legend_label='Vector r ', color='yellow', thickness=5)
+AllPlot= e1Plot + e2Plot + e3Plot+ rPlot + VtPlot+ rPrimePlot + e1PrimePlot +e2PrimePlot + e3PrimePlot 
+AllPlot.show()
+</script>
+  </div></div><div class="nb-cell nb-code-cell"><div class="nb-input" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage"></code></pre></div>
+  <div class="compute sagecell output_02fb4977278045d98c286ca1676b1d07" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">
+</script>
+  </div></div><div class="nb-cell nb-code-cell"><div class="nb-input" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage"></code></pre></div>
+  <div class="compute sagecell output_2bd792631b0c4a6cb3b2751b86980d34" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">
+</script>
+  </div></div><div class="nb-cell nb-code-cell"><div class="nb-input" style="display: none;"><pre class=" language-sage"><code class=" language-sage" data-language="sage"></code></pre></div>
+  <div class="compute sagecell output_afa2f60103eb4fc38692897e97a713a0" style="display: none;">
+
+<div class="sagecell-templates hide"></div>
+<div class="sagecell_output_elements" style="display: none;">
+    
+    <div class="sagecell_messages">
+        <hr>
+        <span style="font-size: large; font-weight: bold">Messages</span>
+        <br><br>
+    </div>
+</div></div>
+  <div class="compute" style="display: none;">
+    <script type="text/x-sage">
+</script>
+  </div></div></div></div></div>
+
+
+            
+        </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://sagecell.sagemath.org/embedded_sagecell.js"></script>
+  <script src="https://dahn-research.eu/nbplayer/vendor/js/FileSaver.min.js"></script>
+  <script src="https://dahn-research.eu/nbplayer/nbplayerConfig.js"></script>
+  <script src="https://dahn-research.eu/nbplayer/js/nbrunner.min.js"></script>
+  <script>
+    playerConfig={"panes":"ExecRead","lang":"sage","linked":true,"eval":false,"hide":["fullScreen"],"execute":true,"showRead":true,"collapsable":false,"playerPath":"https://dahn-research.eu/nbplayer","name":"Gelileo_Transform (1)"};
+    playerMode={"showSage":true,"showNotebookInput":true,"showSageInput":true};
+    makeMenu();
+    localize();
+    loadStatus();
+    makeSageCells(playerConfig);
+    launchPlayer();
+  </script>
+  </body></html>
